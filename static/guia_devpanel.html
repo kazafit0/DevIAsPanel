@@ -1,0 +1,424 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Guía del DevIAs Panel y sus plugins</title>
+<style>
+:root{
+  --bg:#f6f7fb; --card:#ffffff; --ink:#151a2e; --mut:#5a6280; --line:#e1e4ef; --acc:#4f5df5; --acc2:#0f9d8a; --warn:#c2410c; --ok:#15803d;
+  --code:#101428; --codeink:#dfe6ff; --chip:#eef0fb; --shadow:0 1px 2px rgba(20,26,60,.06),0 8px 24px rgba(20,26,60,.06);
+}
+:root[data-tema="oscuro"]{
+  --bg:#0c0f1d; --card:#141934; --ink:#e8ebfa; --mut:#9aa3c7; --line:#242b52; --acc:#8b97ff; --acc2:#43d1bd; --warn:#fb923c; --ok:#4ade80;
+  --code:#080a16; --codeink:#cfd8ff; --chip:#1c2347; --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.35);
+}
+@media (prefers-color-scheme:dark){ :root:not([data-tema="claro"]){
+  --bg:#0c0f1d; --card:#141934; --ink:#e8ebfa; --mut:#9aa3c7; --line:#242b52; --acc:#8b97ff; --acc2:#43d1bd; --warn:#fb923c; --ok:#4ade80;
+  --code:#080a16; --codeink:#cfd8ff; --chip:#1c2347; --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.35);
+}}
+*{box-sizing:border-box} html{scroll-behavior:smooth;scroll-padding-top:74px}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.6 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+a{color:var(--acc)} code,pre,kbd{font-family:ui-monospace,SFMono-Regular,Consolas,monospace}
+code{background:var(--chip);padding:.1em .4em;border-radius:6px;font-size:.88em}
+.wrap{max-width:1120px;margin:0 auto;padding:0 18px}
+header.top{position:sticky;top:0;z-index:20;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+header.top .wrap{display:flex;align-items:center;gap:14px;height:58px}
+.logo{font-weight:800;letter-spacing:.2px;white-space:nowrap} .logo b{color:var(--acc)}
+nav{display:flex;gap:4px;overflow-x:auto;flex:1;scrollbar-width:none} nav::-webkit-scrollbar{display:none}
+nav a{white-space:nowrap;text-decoration:none;color:var(--mut);padding:7px 11px;border-radius:9px;font-size:14px;font-weight:600}
+nav a:hover,nav a.on{background:var(--chip);color:var(--ink)}
+.tema{border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:9px;padding:6px 10px;cursor:pointer;font:inherit;font-size:13px}
+.hero{padding:54px 0 26px}
+.hero h1{font-size:clamp(30px,5vw,50px);line-height:1.08;margin:0 0 14px;letter-spacing:-.02em}
+.hero h1 span{background:linear-gradient(90deg,var(--acc),var(--acc2));-webkit-background-clip:text;background-clip:text;color:transparent}
+.hero p{max-width:760px;color:var(--mut);font-size:18px;margin:0 0 22px}
+.tres{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+.tres .c{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px 18px;box-shadow:var(--shadow)}
+.tres .c b{display:block;font-size:15px;margin-bottom:4px}.tres .c span{color:var(--mut);font-size:14.5px}
+section{padding:44px 0 6px} h2{font-size:clamp(24px,3.4vw,34px);margin:0 0 6px;letter-spacing:-.01em}
+h2+.sub{color:var(--mut);margin:0 0 22px;max-width:780px} h3{margin:26px 0 8px;font-size:19px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:20px;box-shadow:var(--shadow)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px} .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+.chip{display:inline-block;background:var(--chip);border-radius:999px;padding:2px 10px;font-size:12.5px;font-weight:700;color:var(--mut)}
+.chip.u{background:color-mix(in srgb,var(--acc) 16%,transparent);color:var(--acc)} .chip.cl{background:color-mix(in srgb,var(--acc2) 18%,transparent);color:var(--acc2)} .chip.p{background:color-mix(in srgb,var(--warn) 16%,transparent);color:var(--warn)}
+/* proceso */
+.flujo{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}
+.paso{position:relative;text-align:left;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:13px 13px 12px;cursor:pointer;font:inherit;color:inherit;box-shadow:var(--shadow);transition:transform .12s,border-color .12s}
+.paso:hover{transform:translateY(-2px)} .paso.on{border-color:var(--acc);outline:2px solid color-mix(in srgb,var(--acc) 35%,transparent)}
+.paso .n{display:inline-grid;place-items:center;width:26px;height:26px;border-radius:50%;background:var(--acc);color:#fff;font-size:13px;font-weight:800;margin-bottom:7px}
+.paso b{display:block;font-size:15px;line-height:1.25}.paso small{display:block;color:var(--mut);margin-top:3px;font-size:12.5px;line-height:1.35}
+.detalle{margin-top:16px;display:grid;grid-template-columns:1.2fr 1fr;gap:18px}
+.detalle h3{margin:0 0 8px} .detalle ul{margin:6px 0 0;padding-left:20px;color:var(--mut)} .detalle li{margin:3px 0}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:6px 12px;font-size:14.5px} .kv dt{color:var(--mut);font-weight:700} .kv dd{margin:0}
+/* codigo */
+pre{background:var(--code);color:var(--codeink);border-radius:14px;padding:16px 18px;overflow:auto;font-size:13.5px;line-height:1.55;margin:0}
+.cb{position:relative} .cb button{position:absolute;top:9px;right:9px;background:#ffffff1a;color:#e8ecff;border:1px solid #ffffff33;border-radius:8px;padding:4px 9px;cursor:pointer;font-size:12px}
+.c1{color:#7f8bbf}.c2{color:#7be0c3}.c3{color:#ffb86b}.c4{color:#a9b8ff}
+/* tabla */
+.tools{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 12px}
+.tools button,.tools input{border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:10px;padding:7px 12px;font:inherit;font-size:14px;cursor:pointer}
+.tools button.on{background:var(--acc);color:#fff;border-color:var(--acc)} .tools input{cursor:text;min-width:200px;flex:1}
+table{width:100%;border-collapse:collapse;font-size:14.5px;background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden;box-shadow:var(--shadow)}
+th,td{padding:10px 13px;text-align:left;vertical-align:top;border-bottom:1px solid var(--line)} th{background:var(--chip);font-size:12.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--mut)} tr:last-child td{border-bottom:0}
+td.f{font-weight:700;font-family:ui-monospace,Consolas,monospace;font-size:13.5px;white-space:nowrap}
+.ob{color:var(--ok);font-weight:800;font-size:12.5px}.op{color:var(--mut);font-weight:700;font-size:12.5px}
+.tablaw{overflow-x:auto}
+/* arbol */
+.arbol{display:grid;grid-template-columns:1.1fr 1fr;gap:16px;align-items:start}
+.carp{list-style:none;margin:0;padding:0;font-family:ui-monospace,Consolas,monospace;font-size:13.8px}
+.carp li{padding:5px 8px;border-radius:8px;cursor:pointer;display:flex;gap:8px;align-items:baseline} .carp li:hover,.carp li.on{background:var(--chip)}
+.carp .d1{padding-left:22px}.carp .d2{padding-left:44px} .carp i{font-style:normal;color:var(--mut);font-family:system-ui;font-size:12.5px}
+.dato{font-weight:700;color:var(--acc)}
+.nota{border-left:4px solid var(--acc2);background:color-mix(in srgb,var(--acc2) 9%,transparent);padding:11px 14px;border-radius:0 12px 12px 0;color:var(--ink);margin:14px 0;font-size:15px}
+.nota.w{border-color:var(--warn);background:color-mix(in srgb,var(--warn) 9%,transparent)}
+/* checklist */
+.lista{list-style:none;margin:0;padding:0;display:grid;gap:10px}
+.lista li{display:flex;gap:12px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:13px 15px;box-shadow:var(--shadow)}
+.lista input{width:20px;height:20px;margin-top:3px;accent-color:var(--acc);flex:none} .lista b{display:block} .lista span{color:var(--mut);font-size:14.5px}
+.lista li.hecho{opacity:.6} .prog{height:10px;background:var(--chip);border-radius:999px;overflow:hidden;margin:0 0 16px}.prog i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--acc),var(--acc2));transition:width .25s}
+.reglas{columns:2;column-gap:22px;margin:0;padding-left:20px} .reglas li{break-inside:avoid;margin:0 0 9px;color:var(--mut)} .reglas b{color:var(--ink)}
+.pestanas{display:grid;grid-template-columns:repeat(4,1fr);gap:10px} .pestanas .t{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:11px 13px} .pestanas b{font-size:14.5px}.pestanas span{display:block;color:var(--mut);font-size:13px;line-height:1.4}
+footer{padding:44px 0 60px;color:var(--mut);font-size:14px;border-top:1px solid var(--line);margin-top:50px}
+@media (max-width:900px){.flujo{grid-template-columns:repeat(2,1fr)}.detalle,.arbol,.grid2{grid-template-columns:1fr}.tres,.grid3{grid-template-columns:1fr}.pestanas{grid-template-columns:repeat(2,1fr)}.reglas{columns:1}}
+@media (max-width:480px){.wrap{padding:0 16px}.pestanas{grid-template-columns:1fr}.logo small{display:none}}
+</style>
+</head>
+<body>
+<header class="top"><div class="wrap">
+  <div class="logo">Dev<b>Panel</b> <small style="color:var(--mut);font-weight:600">· guía</small></div>
+  <nav id="nav">
+    <a href="#proceso">Proceso</a><a href="#conexion">Claude y el panel</a><a href="#piezas">Piezas</a><a href="#pestanas">Pestañas</a><a href="#plugin">El plugin</a><a href="#contrato">plugin.json</a><a href="#juego">Página del juego</a><a href="#pipeline">Pipeline</a><a href="#crear">Crea el tuyo</a><a href="#requisitos">Requisitos</a><a href="#reglas">Reglas</a>
+  </nav>
+  <button class="tema" id="tema" type="button" aria-label="Cambiar tema">Tema</button>
+</div></header>
+
+<main class="wrap">
+<div class="hero">
+  <h1>Un estudio de videos que se <span>arma con plugins</span></h1>
+  <p>El <b>DevIAs Panel</b> es un panel local (puerto 8820) que lleva un video de la idea al archivo final: pedidos, borrador, voz, música, efectos, unión y publicación. <b>El panel es el skill; cada formato de video es un plugin</b> que se enchufa a él.</p>
+  <div class="tres">
+    <div class="c"><b>El panel pone el motor</b><span>Voz, mezcla, grabación, unión, cola de trabajos y avisos son del núcleo. Un plugin nunca los reinventa.</span></div>
+    <div class="c"><b>El plugin pone el formato</b><span>Qué juego o historia se hace, sus reglas, sus ideas, sus títulos y la «receta» del pipeline.</span></div>
+    <div class="c"><b>Claude hace el trabajo creativo</b><span>Lee los pedidos del panel, construye el video y avisa del avance. La voz y la unión las inicias tú.</span></div>
+  </div>
+</div>
+
+<section id="proceso">
+  <h2>El proceso, de la idea al video final</h2>
+  <p class="sub">Pulsa un paso para ver quién lo hace, qué archivos toca y qué reglas lleva.</p>
+  <div class="flujo" id="flujo"></div>
+  <div class="card detalle" id="detalle"></div>
+  <div class="nota w"><b>Regla de oro:</b> el borrador se revisa primero; <b>la voz y la unión solo las inicia el usuario</b> (botones «Generar voz» y «Unir con la voz»). Claude nunca los dispara por su cuenta.</div>
+</section>
+
+<section id="conexion">
+  <h2>Cómo hablan el panel y Claude</h2>
+  <p class="sub">No hay un chat compartido ni un id de sesión: se hablan por archivos y por la API local del panel.</p>
+  <div class="grid2">
+    <div class="card">
+      <h3 style="margin-top:0">Del panel a Claude</h3>
+      <ol style="padding-left:20px;margin:0;color:var(--mut)">
+        <li>Tú pides algo en el panel («Díselo a Claude», «Mejorar», «Rehacer todo»…).</li>
+        <li>El panel lo escribe en <code>pedidos.json</code> con estado <i>pendiente</i>.</li>
+        <li><code>escucha.py</code> (lanzado por Claude como Monitor) mira ese archivo cada pocos segundos.</li>
+        <li>Al ver un pedido nuevo imprime una línea, y eso despierta a Claude.</li>
+      </ol>
+    </div>
+    <div class="card">
+      <h3 style="margin-top:0">De Claude al panel</h3>
+      <ol style="padding-left:20px;margin:0;color:var(--mut)">
+        <li><code>pedido.py</code> informa avances, cambios, errores y preguntas (<code>--etapa</code>, <code>--cambio</code>, <code>--error</code>, <code>--pregunta</code>).</li>
+        <li>Salen en barras de trabajo, en la campana y en la pestaña Actividad.</li>
+        <li>El latido (<code>escucha.py --latido</code>) escribe <code>claude_vivo.json</code>: es el «Claude conectado».</li>
+        <li>El temporizador del panel (<code>vivo_hasta.json</code>) decide cuánto tiempo figura conectado.</li>
+      </ol>
+    </div>
+  </div>
+  <div class="nota">La conexión vive en la conversación donde se activó el skill <code>devpanel</code>. Si esa sesión se compacta o se reinicia, hay que volver a activarlo para que Claude rearme el Monitor y atienda lo que haya quedado pendiente.</div>
+  <h3>Los 8 pasos del «cerebro» que ve el usuario</h3>
+  <div style="display:flex;flex-wrap:wrap;gap:8px" id="etapas"></div>
+</section>
+
+<section id="piezas">
+  <h2>Las piezas del DevIAs Panel</h2>
+  <p class="sub">Carpeta <code>devpanel/</code>. Lo que es del núcleo no se toca desde un plugin.</p>
+  <div class="tablaw"><table>
+    <thead><tr><th>Pieza</th><th>Qué hace</th></tr></thead>
+    <tbody>
+    <tr><td class="f">servidor.py</td><td>Servidor y API local (puerto 8820): proyectos, pedidos, trabajos, plugins, voz, títulos, publicación. Sirve la vista y los videos de <code>series/</code>.</td></tr>
+    <tr><td class="f">static/</td><td>La vista: <code>admin.html</code> + <code>admin_nuevo.js</code> (vista administrativa) y <code>index.html</code> (vista clásica).</td></tr>
+    <tr><td class="f">motor/video.py</td><td>Biblioteca de los pipelines: avance, registrar, grabar, voz, música, efectos, pegar voz, mezclar, unir.</td></tr>
+    <tr><td class="f">motor/pipeline.py</td><td>El flujo único: <b>borrador → voz → borrador con voz → unir</b>. Cada plugin solo aporta su «receta».</td></tr>
+    <tr><td class="f">motor/voz_partes.py</td><td>La voz con Voice Studio, <b>por partes</b>: cada frase se guarda al terminar y, si se corta, «Seguir» retoma desde ahí.</td></tr>
+    <tr><td class="f">motor/mezcla.py</td><td>Mezcla voz + música + efectos por escenas (lee <code>escenas.json</code>, <code>sfx_cues.json</code>, <code>sfx_plan.json</code>).</td></tr>
+    <tr><td class="f">motor/sfx_freesound.py</td><td>Baja efectos de Freesound (solo CC0) con la «Clave API de Freesound» del plugin y los cachea en <code>sfx_cache/</code>.</td></tr>
+    <tr><td class="f">grabador/</td><td>Graba la página del juego a video: <code>grab_gpu.py</code> (WebCodecs, varios trabajadores), respaldo <code>grab_paralelo.py</code>, <code>regrabar_tramo.py</code>.</td></tr>
+    <tr><td class="f">plugins/</td><td>Un plugin por carpeta. Se instalan, activan y configuran desde la pestaña Plugins.</td></tr>
+    <tr><td class="f">series/</td><td>Un video por carpeta: juego, guion, voz, borradores y salida.</td></tr>
+    <tr><td class="f">escucha.py · pedido.py</td><td>Las dos mitades de la conversación con Claude (ver arriba).</td></tr>
+    <tr><td class="f">instalar.py · requisitos.py</td><td>Instalador limpio (sin plugins) y revisión de lo que necesita el equipo.</td></tr>
+    <tr><td class="f">_papelera/</td><td>Lo que se borra o se reemplaza va aquí, recuperable.</td></tr>
+    <tr><td class="f">*.json</td><td>Datos del panel: <code>pedidos</code>, <code>proyectos</code>, <code>catalogo</code> (ideas), <code>actividad</code>, <code>plugins_estado</code>, <code>voz_config</code>, <code>devpanel</code>…</td></tr>
+    </tbody></table></div>
+  <h3>Dentro de una carpeta de video (<code>series/&lt;id&gt;/</code>)</h3>
+  <div class="cb"><pre id="carpvideo"><span class="c4">proyecto.json</span>   <span class="c1"># id, idea, titulo, formato, aspecto (9:16 / 16:9), seed, seo{…}</span>
+<span class="c4">config.json</span>     <span class="c1"># inicio, diseño, comentario del fan, ganador… (lo escribe el pipeline y el plugin)</span>
+<span class="c4">game.js · index.html</span>   <span class="c1"># la «página» que graba el panel</span>
+<span class="c4">guion/1.json</span>    <span class="c1"># [{ "t": segundo, "texto": "…", "key": "u01" }]</span>
+<span class="c4">escenas.json · sfx_cues.json</span>
+<span class="c4">audiolibro/partes/</span>   <span class="c1"># una parte de voz por frase (se guardan al terminar)</span>
+<span class="c4">voz/</span>            <span class="c1"># voz_completa.wav + una por frase</span>
+<span class="c4">salida_mudo/</span>    <span class="c1"># borrador sin voz · borrador_voz.mp4 (borrador con voz)</span>
+<span class="c4">salida/</span>         <span class="c1"># video final + escenas</span></pre></div>
+</section>
+
+<section id="pestanas">
+  <h2>Las pestañas del panel</h2>
+  <p class="sub">La vista administrativa: <code>http://localhost:8820/static/admin.html</code></p>
+  <div class="pestanas" id="tabs"></div>
+</section>
+
+<section id="plugin">
+  <h2>La estructura de un plugin</h2>
+  <p class="sub">Un plugin es una carpeta en <code>plugins/&lt;id&gt;/</code> (se instala desde un <code>.zip</code>). Pulsa una línea para ver para qué sirve.</p>
+  <div class="arbol">
+    <div class="card"><ul class="carp" id="arbol"></ul></div>
+    <div class="card" id="arbolinfo" style="position:sticky;top:76px"><h3 style="margin-top:0">Elige un archivo</h3><p style="color:var(--mut);margin:0">Verás si es obligatorio y qué debe contener.</p></div>
+  </div>
+  <div class="nota"><b>Lo que un plugin NO puede traer:</b> scripts propios de voz, mezcla, render o unión. El verificador lo rechaza. Todo eso es del núcleo y lo reciben todos los plugins por igual.</div>
+</section>
+
+<section id="contrato">
+  <h2>plugin.json: el contrato</h2>
+  <p class="sub">El panel verifica estos campos al instalar (precarga antes de instalar nada) y los vuelve a comprobar en «Verificar». Esquema 1 · API del panel 2.</p>
+  <div class="tools">
+    <input id="busca" type="search" placeholder="Buscar un campo…" aria-label="Buscar un campo">
+    <button type="button" data-f="todos" class="on">Todos</button><button type="button" data-f="ob">Obligatorios</button><button type="button" data-f="op">Opcionales</button>
+  </div>
+  <div class="tablaw"><table id="tabla"><thead><tr><th>Campo</th><th>Tipo</th><th>Para qué sirve</th><th></th></tr></thead><tbody></tbody></table></div>
+  <h3>Un plugin mínimo</h3>
+  <div class="cb"><button type="button" data-copia="ejemplo">Copiar</button><pre id="ejemplo"></pre></div>
+  <div class="grid2" style="margin-top:16px">
+    <div class="card"><h3 style="margin-top:0">Tipos de ajuste (<code>ajustes</code>)</h3><p style="color:var(--mut);margin:0">Lo que el usuario configura <b>una vez</b> en Plugins → Configurar: <code>numero</code>, <code>interruptor</code>, <code>opcion</code> y <code>texto</code>. Cada uno lleva <code>id</code>, <code>etiqueta</code> y <code>ayuda</code>; opcionales <code>grupo</code>, <code>defecto</code>, <code>min</code>, <code>max</code>, <code>opciones</code>.</p></div>
+    <div class="card"><h3 style="margin-top:0">Configuración por video (<code>config_video</code>)</h3><p style="color:var(--mut);margin:0">Lo que se elige <b>en Ideas, para cada video</b>: <code>paises</code>, <code>interruptor</code>, <code>opcion</code>, <code>numero</code>, <code>equipos</code>, <code>ganador</code>, <code>comentario</code>. Sus <code>id</code> no pueden repetir los de <code>ajustes</code>.</p></div>
+  </div>
+</section>
+
+<section id="juego">
+  <h2>La página del juego: lo que exige el grabador</h2>
+  <p class="sub">El panel no entiende de tu juego: abre tu página en un navegador sin cabeza y la graba cuadro a cuadro. Por eso tu página debe cumplir este contrato (lista en <code>plugin.json → pagina</code>).</p>
+  <div class="grid2">
+    <div class="cb"><button type="button" data-copia="apijs">Copiar</button><pre id="apijs"></pre></div>
+    <div class="card">
+      <h3 style="margin-top:0">Reglas que hacen que funcione</h3>
+      <ul style="margin:0;padding-left:20px;color:var(--mut)">
+        <li><b>Determinista:</b> la misma semilla da la misma partida; nada de <code>Math.random()</code> sin semilla.</li>
+        <li><b>Paso fijo (1/60 s):</b> la lógica no depende de los cuadros por segundo, así el borrador a 20 fps y el final a 30 fps son idénticos.</li>
+        <li><b>Tamaño según el formato:</b> short 1080×1920 (9:16) o largo 1920×1080 (16:9); lo fija <code>proyecto.json → aspecto</code>.</li>
+        <li><b><code>__cues</code> y <code>__log</code>:</b> los efectos y los «mejores momentos» salen de aquí.</li>
+        <li><b>Tiempos:</b> <code>tiempos: "juego"</code> = el juego marca sus segundos; <code>"guion"</code> = la escena se adapta al guion.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section id="pipeline">
+  <h2>El pipeline: la «receta» del plugin</h2>
+  <p class="sub">El flujo lo pone el núcleo. Tu script solo dice qué archivos cuentan y qué preparar. Se ejecuta con tres variables de entorno.</p>
+  <div class="grid2">
+    <div class="cb"><button type="button" data-copia="receta">Copiar</button><pre id="receta"></pre></div>
+    <div>
+      <div class="card"><h3 style="margin-top:0">Variables que recibe</h3>
+        <dl class="kv"><dt>DEVPANEL</dt><dd>carpeta del DevIAs Panel</dd><dt>PLUGIN_DIR</dt><dd>carpeta de tu plugin</dd><dt>PLUGIN_AJUSTES</dt><dd>JSON con los ajustes del usuario (música, claves, calidad…)</dd><dt>DEVPANEL_TMP</dt><dd>carpeta para temporales</dd></dl></div>
+      <div class="card" style="margin-top:14px"><h3 style="margin-top:0">Etapas que corre el panel</h3>
+        <dl class="kv"><dt>borrador</dt><dd>graba el video mudo (20 fps) y lo registra</dd><dt>voz / parte</dt><dd>genera la voz por partes y arma el «borrador con voz»</dd><dt>conforme</dt><dd>voz + unión final</dd><dt>unir</dt><dd>graba a 30 fps, música, efectos, mezcla por escenas</dd><dt>tramo</dt><dd>regraba solo un tramo</dd></dl></div>
+    </div>
+  </div>
+</section>
+
+<section id="crear">
+  <h2>Qué necesitas para hacer tu propio plugin</h2>
+  <p class="sub">Una lista para seguir de arriba abajo. Marca lo que ya tengas: queda guardado en este navegador.</p>
+  <div class="prog"><i id="barra"></i></div>
+  <ul class="lista" id="pasos"></ul>
+  <h3>Cómo lo instala el usuario</h3>
+  <div class="card">
+    <ol style="margin:0;padding-left:20px;color:var(--mut)">
+      <li>Comprimes la carpeta del plugin en un <code>.zip</code> (con <code>plugin.json</code> dentro de la carpeta raíz).</li>
+      <li>En <b>Plugins</b> subes el zip: el panel hace una <b>precarga</b> (lee el paquete sin instalar nada) y dice si es un plugin y si cumple.</li>
+      <li>Si no cumple el esqueleto, <b>no se instala</b> y se explica qué falla. Si ya existe, ofrece actualizar (la versión anterior va a <code>_papelera/</code>).</li>
+      <li>Lo <b>activas</b> (solo uno a la vez), lo <b>configuras</b> y, si quieres, pides «Mejorar este plugin».</li>
+    </ol>
+  </div>
+</section>
+
+<section id="requisitos">
+  <h2>Qué necesita el equipo</h2>
+  <p class="sub">El instalador del DevIAs Panel corre <code>python requisitos.py</code> y lo explica en palabras sencillas antes de abrir el panel.</p>
+  <div class="tablaw"><table>
+    <thead><tr><th>Qué</th><th>Para qué</th><th>Nivel</th></tr></thead>
+    <tbody>
+    <tr><td class="f">Python 3.10+</td><td>Corre el panel y los pipelines.</td><td><span class="ob">Obligatorio</span></td></tr>
+    <tr><td class="f">playwright · pillow · numpy · imageio-ffmpeg</td><td>Grabar, imágenes, audio y ffmpeg. Los instala <code>python instalar.py --instalar-paquetes</code>.</td><td><span class="ob">Obligatorio</span></td></tr>
+    <tr><td class="f">Chromium (playwright)</td><td>El navegador del grabador.</td><td><span class="ob">Para video</span></td></tr>
+    <tr><td class="f">Tarjeta NVIDIA (~6 GB)</td><td>La voz y la grabación rápida por GPU.</td><td><span class="ob">Para voz/video</span></td></tr>
+    <tr><td class="f">Voice Studio</td><td>Genera la voz. Su carpeta se indica en <code>devpanel.json → voice_studio_dir</code>; el panel lo enciende al arrancar.</td><td><span class="ob">Para voz</span></td></tr>
+    <tr><td class="f">Clave API de Freesound</td><td>Efectos de sonido (solo CC0). Se pega en los ajustes del plugin. Sin ella el video se une sin efectos.</td><td><span class="op">Opcional</span></td></tr>
+    <tr><td class="f">Un mp3 de fondo</td><td>Música bajo la voz (ajuste del plugin).</td><td><span class="op">Opcional</span></td></tr>
+    <tr><td class="f">Claude con el skill «devpanel»</td><td>Atiende los pedidos y construye el video.</td><td><span class="ob">Para crear</span></td></tr>
+    </tbody></table></div>
+  <div class="nota">Orden de instalación: <b>instalar → requisitos en orden → abrir el panel (activa Voice Studio) → activar el skill en la conversación → instalar plugins</b>. El panel arranca sin plugins.</div>
+</section>
+
+<section id="reglas">
+  <h2>Reglas que el sistema respeta</h2>
+  <ol class="reglas">
+    <li><b>La voz y la unión las inicia el usuario</b>, siempre, después de revisar el borrador.</li>
+    <li><b>Una sola voz por video</b>, generada por partes: cada frase cae en su segundo y nada se recorta ni se reordena.</li>
+    <li><b>Cero tiempos muertos:</b> el guion se pega a los sucesos reales del juego.</li>
+    <li><b>Los títulos y descripciones dicen lo que pasa en el video</b>; solo se afirma algo de un país si es verdad en el video.</li>
+    <li><b>Preguntas y bloqueos salen en el panel</b> (campana y chip), no solo en el chat.</li>
+    <li><b>Backup antes de cambios grandes</b> y lo borrado va a <code>_papelera/</code>.</li>
+    <li><b>No se guardan claves ni datos personales</b> en los plugins que se comparten: las claves van en los ajustes del usuario.</li>
+    <li><b>Un plugin no reemplaza al núcleo:</b> sin scripts propios de voz, mezcla, render ni unión.</li>
+  </ol>
+</section>
+</main>
+
+<footer><div class="wrap">Guía generada a partir del código del propio DevIAs Panel · se abre sin internet · <a href="#proceso">volver arriba</a></div></footer>
+
+<script>
+const $=(s,r=document)=>r.querySelector(s), $$=(s,r=document)=>[...r.querySelectorAll(s)];
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const guarda=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}, lee=(k,d)=>{try{const x=localStorage.getItem(k);return x?JSON.parse(x):d}catch(e){return d}};
+
+/* ---------- tema ---------- */
+(function(){const r=document.documentElement,b=$('#tema');let t=lee('guia-tema',null);if(t)r.dataset.tema=t;
+ const act=()=>{const osc=matchMedia('(prefers-color-scheme: dark)').matches;const cur=r.dataset.tema||(osc?'oscuro':'claro');b.textContent=cur==='oscuro'?'☀ Claro':'☾ Oscuro'};act();
+ b.onclick=()=>{const osc=matchMedia('(prefers-color-scheme: dark)').matches;const cur=r.dataset.tema||(osc?'oscuro':'claro');r.dataset.tema=cur==='oscuro'?'claro':'oscuro';guarda('guia-tema',r.dataset.tema);act()}})();
+
+/* ---------- proceso ---------- */
+const PASOS=[
+ {t:'Idea',s:'Pide ideas o escribe la tuya',q:'u',quien:'Tú',que:'En la pestaña Ideas pides tandas de ideas (corto o largo) o escribes una propia. Las ideas se guardan en el catálogo y se pueden paginar, descartar o marcar «me interesa».',arch:['catalogo.json','plugin → ideas/'],reglas:['Las ideas las propone el plugin activo.','Cada tanda queda separada de las anteriores.']},
+ {t:'Pedido',s:'«Díselo a Claude»',q:'u',quien:'Tú',que:'Eliges formato (short o largo), duración y la configuración de ESE video (países, ganador, tipo de inicio, comentario de un fan…). Los dos agentes del cerebro proponen el mejor formato y el mejor diseño.',arch:['pedidos.json','plugin → agentes/','plugin → config_video'],reglas:['El pedido lleva la configuración elegida y la propuesta de los agentes.','«Rehacer todo» archiva el video anterior y pide uno distinto.']},
+ {t:'Claude construye',s:'Juego, guion y borrador',q:'c',quien:'Claude',que:'Claude recibe el pedido, lee las reglas del plugin (INSTRUCCIONES.md) y crea la carpeta del video: la página del juego, la configuración, el guion con tiempos y las escenas. Informa cada etapa con pedido.py.',arch:['series/<id>/game.js','guion/1.json','config.json','proyecto.json'],reglas:['Si es formato largo, lleva comentarista y estudio (regla del plugin).','Las dudas salen en el panel, no solo en el chat.']},
+ {t:'Borrador mudo',s:'Se graba la página del juego',q:'p',quien:'Panel',que:'El grabador abre la página, simula la partida y la graba a 20 fps con varios trabajadores en paralelo usando la tarjeta de video. El borrador queda registrado y se ve en «Mis videos» con las frases como subtítulos.',arch:['grabador/grab_gpu.py','salida_mudo/s<seed>_completo.mp4'],reglas:['El tiempo del video lo marca el juego (tiempos = «juego») o el guion.','Si el grabador falla con 3 trabajadores, reintenta con menos.']},
+ {t:'Revisión',s:'Tú compruebas y corriges',q:'u',quien:'Tú',que:'Ves el borrador, lees las frases y pides cambios («Mejora para todo el video» o por frase). Cada cambio se avisa en la campana y se anota para el próximo borrador.',arch:['cambios_pendientes.json','guion/1.json'],reglas:['No se cambia el guion mientras corre un trabajo de voz.']},
+ {t:'Voz',s:'«Generar voz» (Voice Studio)',q:'u',quien:'Tú inicias · Panel ejecuta',que:'La voz se genera por partes con Voice Studio: cada frase se guarda al terminar y cae en su segundo. Si se corta, el botón «Seguir donde se quedó» retoma desde ahí. Con el borrador y la voz el panel arma un «borrador con voz».',arch:['motor/voz_partes.py','audiolibro/partes/','voz/voz_completa.wav','salida_mudo/borrador_voz.mp4'],reglas:['Una sola voz y un solo audio por video.','El panel muestra cuántas partes van (por ejemplo 63 de 79).']},
+ {t:'Borrador con voz',s:'Revisas la voz sobre el video',q:'u',quien:'Tú',que:'Compruebas que cada frase cae en su jugada. El borrador mudo no se modifica: el «borrador con voz» es otro archivo. Si todo está bien, apruebas.',arch:['salida_mudo/borrador_voz.mp4'],reglas:['La unión solo se habilita cuando todas las frases tienen voz.']},
+ {t:'Unir',s:'«Unir con la voz»',q:'u',quien:'Tú inicias · Panel ejecuta',que:'Se graba el video final a 30 fps, se instala la música de fondo, se bajan los efectos de Freesound (con la clave del plugin) y se mezcla todo por escenas. Resultado: el video final con voz, música y efectos.',arch:['motor/video.py','motor/sfx_freesound.py','motor/mezcla.py','salida/<id>_completo.mp4'],reglas:['Sin clave de Freesound la unión sigue, sin efectos.','El video final puede quedar en escenas separadas.']},
+ {t:'Publicar',s:'Título, descripción y miniatura',q:'p',quien:'Panel',que:'La pestaña Publicar genera títulos, descripción, hashtags y etiquetas a partir de lo que de verdad pasa en el video, y prepara las capturas para la miniatura.',arch:['titulos/','miniaturas/','plugin → titulos/'],reglas:['El título empieza con el gancho y el nombre del juego va en los primeros caracteres.','Solo se afirma algo de un país si es verdad en el video.']}
+];
+(function(){const fl=$('#flujo'),de=$('#detalle');
+ fl.innerHTML=PASOS.map((p,i)=>`<button class="paso" type="button" data-i="${i}"><span class="n">${i+1}</span><b>${esc(p.t)}</b><small>${esc(p.s)}</small></button>`).join('');
+ const ver=i=>{const p=PASOS[i];$$('.paso',fl).forEach((b,k)=>b.classList.toggle('on',k===i));
+  de.innerHTML=`<div><h3>${i+1}. ${esc(p.t)} <span class="chip ${p.q}">${esc(p.quien)}</span></h3><p style="margin:0;color:var(--mut)">${esc(p.que)}</p><ul>${p.reglas.map(r=>`<li>${esc(r)}</li>`).join('')}</ul></div><div><h3>Archivos y piezas</h3><ul style="padding-left:0;list-style:none;margin:0;display:grid;gap:7px">${p.arch.map(a=>`<li><code>${esc(a)}</code></li>`).join('')}</ul></div>`};
+ fl.onclick=e=>{const b=e.target.closest('.paso');if(b)ver(+b.dataset.i)};ver(0)})();
+$('#etapas').innerHTML=['Entender el pedido','Guion y frases','Mapa y países','Personajes y escenas','Gráficos','Voz y tiempos','Verificación','Borrador listo'].map((t,i)=>`<span class="chip u">${i+1} · ${t}</span>`).join('');
+$('#tabs').innerHTML=[['Inicio','Resumen y estado de lo que está en curso.'],['Ideas','Pide ideas (corto o largo), pagínalas y mándalas a Claude.'],['Mis videos','Reproductor (final, borrador con voz, borrador sin voz), frases, voz y unión.'],['Voces','Perfil, velocidad y calidad de la voz.'],['Publicar','Títulos, descripción, hashtags y miniaturas.'],['Trabajos','Lo que corre ahora y lo reciente, con su avance.'],['Actividad','Qué archivos y etapas tocó Claude.'],['Pedidos','Todo lo que se pidió y su estado.'],['Referencias','Material de consulta del plugin y del canal.'],['Plugins','Instalar, activar, configurar, mejorar, desinstalar.'],['Ajustes','Voz, conexión con Claude y requisitos.'],['Vista clásica','La vista anterior del panel.']].map(([a,b])=>`<div class="t"><b>${a}</b><span>${b}</span></div>`).join('');
+
+/* ---------- arbol del plugin ---------- */
+const ARBOL=[
+ ['plugin.json',0,'Obligatorio','La ficha: id, nombre, versión, formatos, pipeline, ajustes… (ver «plugin.json: el contrato»).'],
+ ['INSTRUCCIONES.md',0,'Obligatorio','El método y las reglas para Claude: cómo se construye un video de este formato, qué entrega, qué no hacer, cómo encaja con el panel.'],
+ ['NO_HACER.md · memoria.md',0,'Recomendado','Lista de errores ya vistos y memoria del canal (lo ya hecho, para no repetirlo). Se declaran en <code>reglas</code> y <code>memoria</code>.'],
+ ['referencias/',0,'Recomendado','Material de consulta: estilo visual, estructura de video, audio… Se declara en <code>referencias</code>.'],
+ ['pipeline/',0,'Obligatorio','El script del plugin (<code>pipeline_*.py</code>): solo la «receta» que llama a <code>pipeline.correr({...})</code> del núcleo.'],
+ ['ideas/',0,'Opcional','Módulo que propone ideas (<code>ideas.modulo</code>) y sus tipos.'],
+ ['titulos/',0,'Obligatorio','Cómo se arman título, descripción y etiquetas para cada tipo de video (<code>titulos.dir</code> y <code>titulos.tipos</code>).'],
+ ['agentes/',0,'Opcional','<code>agentes_plugin.py</code> con <code>formato(ctx)</code> y <code>diseno(ctx)</code>: los dos agentes del cerebro. Devuelven {resumen, detalle, config, uso}.'],
+ ['plantilla/',0,'Recomendado','Lo que se copia a cada video nuevo si falta: <code>index.html</code>, motor y herramientas (<code>plantillas</code>).'],
+ ['base/motor/',0,'Recomendado','Motor propio del plugin que usan sus juegos (dibujo, inicio del video, comentarios del público…). Se copia a cada video.'],
+ ['base/tools/',0,'Recomendado','Herramientas del plugin (simuladores, utilidades) que se copian al video.'],
+ ['base/sfx/catalogo.json',0,'Opcional','Qué busca en Freesound cada sonido que piden los juegos (nombre → búsqueda y duración).']
+];
+(function(){const ul=$('#arbol'),inf=$('#arbolinfo');
+ ul.innerHTML=`<li class="on" data-i="-1"><span class="dato">plugins/&lt;id&gt;/</span></li>`+ARBOL.map((a,i)=>`<li class="d1" data-i="${i}"><span>${esc(a[0])}</span><i>${a[2]}</i></li>`).join('');
+ ul.onclick=e=>{const li=e.target.closest('li');if(!li||li.dataset.i==='-1')return;$$('li',ul).forEach(x=>x.classList.remove('on'));li.classList.add('on');const a=ARBOL[+li.dataset.i];
+  inf.innerHTML=`<h3 style="margin-top:0"><code>${esc(a[0])}</code></h3><p style="margin:0 0 8px"><span class="chip ${a[2]==='Obligatorio'?'cl':''}">${a[2]}</span></p><p style="margin:0;color:var(--mut)">${a[3]}</p>`}})();
+
+/* ---------- contrato plugin.json ---------- */
+const CAMPOS=[
+ ['esquema','número','Versión del esqueleto. Hoy: 1.',1],['api','número','Versión de la API del DevIAs Panel que usa el plugin (el panel ofrece la 2).',1],
+ ['id','texto','Identificador. Debe coincidir con el nombre de la carpeta.',1],['nombre','texto','Nombre que ve el usuario.',1],['version','texto','Versión del plugin (súbela en cada cambio).',1],['descripcion','texto','Qué videos genera.',1],
+ ['instrucciones','archivo','Ruta de INSTRUCCIONES.md.',1],['formatos','lista','Formatos que soporta: <code>short</code> (9:16) y/o <code>largo</code> (16:9). El panel define aspecto y duraciones.',1],
+ ['pipeline','objeto','Comandos: <code>borrador</code>, <code>voz</code>, <code>unir</code> y <code>script</code> (ruta del pipeline).',1],
+ ['tiempos','texto','<code>"guion"</code> = la escena se adapta al guion; <code>"juego"</code> = el juego marca sus segundos.',1],
+ ['pagina','lista','Archivos donde la página expone lo que pide el grabador: <code>__ready</code>, <code>__frame</code>, <code>__adv</code>, <code>__sim</code>, <code>__cues</code>, <code>__log</code>.',1],
+ ['voz','objeto','<code>{"modo": "json_manda" | "libre"}</code>. La voz la hace el panel; el plugin no trae scripts de voz.',1],
+ ['titulos','objeto','Tipos de título, descripción y etiquetas que aporta el plugin.',1],
+ ['requisitos','objeto','Paquetes de Python, servicios (por ejemplo voice-studio) y archivos que necesita.',1],
+ ['ajustes','lista','Subpanel de configuración: <code>id</code>, <code>tipo</code>, <code>etiqueta</code>, <code>ayuda</code>; opcional <code>grupo</code>, <code>defecto</code>, <code>min</code>, <code>max</code>, <code>opciones</code>.',1],
+ ['config_video','lista','Lo que el plugin pide EN IDEAS para cada video (países, ganador, comentario…).',0],
+ ['agentes','objeto','<code>{"modulo": "agentes/agentes_plugin.py"}</code>: los dos agentes (formato y diseño).',0],
+ ['ideas','objeto','Módulo que propone ideas y sus tipos.',0],['plantillas','objeto','Carpeta de plantilla, motor y herramientas que se copian al video.',0],
+ ['guion','objeto','Reglas del guion: gancho en segundos, palabras prohibidas, público, formato de <code>guion/1.json</code>.',0],
+ ['reglas · referencias · memoria','lista','Archivos de reglas, consulta y memoria que Claude debe leer.',0],['autor','texto','Quién lo hizo.',0]
+];
+(function(){const tb=$('#tabla tbody');let filtro='todos',q='';
+ const pinta=()=>{tb.innerHTML=CAMPOS.filter(c=>(filtro==='todos'||(filtro==='ob'?c[3]:!c[3]))&&(!q||(c[0]+c[2]).toLowerCase().includes(q))).map(c=>`<tr><td class="f">${esc(c[0])}</td><td>${esc(c[1])}</td><td>${c[2]}</td><td>${c[3]?'<span class="ob">Obligatorio</span>':'<span class="op">Opcional</span>'}</td></tr>`).join('')||'<tr><td colspan="4" style="color:var(--mut)">Sin resultados.</td></tr>'};
+ $('.tools').onclick=e=>{const b=e.target.closest('button[data-f]');if(!b)return;filtro=b.dataset.f;$$('.tools button').forEach(x=>x.classList.toggle('on',x===b));pinta()};
+ $('#busca').oninput=e=>{q=e.target.value.trim().toLowerCase();pinta()};pinta()})();
+
+/* ---------- bloques de codigo ---------- */
+$('#ejemplo').textContent=JSON.stringify({esquema:1,api:2,id:'mi-formato',nombre:'Mi formato de video',version:'1.0.0',descripcion:'Videos de ejemplo con un juego de preguntas.',instrucciones:'INSTRUCCIONES.md',formatos:['short'],
+ pipeline:{borrador:'pipeline_mio.py {carpeta} borrador',voz:'pipeline_mio.py {carpeta} voz',unir:'pipeline_mio.py {carpeta} conforme',script:'pipeline/pipeline_mio.py'},
+ tiempos:'juego',pagina:['plantilla/index.html','plantilla/motor/juego.js'],voz:{modo:'json_manda'},titulos:{dir:'titulos',tipos:{juego:'titulos_mio'}},
+ requisitos:{python:['playwright','imageio_ffmpeg','numpy'],servicios:['voice-studio'],archivos:['pipeline/pipeline_mio.py']},
+ ajustes:[{id:'calidad',grupo:'Grabación',tipo:'opcion',etiqueta:'Calidad del borrador',ayuda:'Rápido (20 fps) o completo (30 fps).',defecto:'rápido (20 fps)',opciones:['rápido (20 fps)','completo (30 fps)']}]},null,2);
+$('#apijs').textContent=`// Tu página (index.html + juego.js) debe exponer:
+window.__ready = false;        // pasa a true cuando todo cargó
+window.__info  = { w: 1080, h: 1920 };   // tamaño del cuadro
+
+window.__frame = dt => { /* avanza dt segundos y DIBUJA */ };
+window.__adv   = n  => { /* avanza n pasos SIN dibujar */ };
+window.__done  = () => /* true cuando la partida terminó */;
+
+window.__sim   = (seed, maxT) => { /* simula sin dibujar y
+   devuelve { V: duración_s, ganador, ... } */ };
+
+window.__cues  = [];  // [{ v: segundo, k: 'tetris', ... }]  → efectos
+window.__log   = [];  // [{ v: segundo, k: 'gol',    ... }]  → mejores momentos
+window.__boot  = seed => { /* reinicia con esa semilla */ };`;
+$('#receta').textContent=`# pipeline/pipeline_mio.py  — SOLO la receta
+import os, sys, pathlib
+sys.path.insert(0, str(pathlib.Path(os.environ["DEVPANEL"]) / "motor"))
+import pipeline, video as V
+
+def preparar(P):
+    # copia plantilla/motor/herramientas si faltan, escribe config.json…
+    if not (P.R / "game.js").exists():
+        sys.exit("Falta el juego (game.js) en la carpeta del video.")
+    if not (P.R / "guion" / "1.json").exists():
+        sys.exit("Falta guion/1.json")
+
+# el núcleo corre borrador → voz → unir; tú dices qué archivos cuentan
+pipeline.correr({"archivos": ("game.js", "index.html", "config.json"),
+                 "preparar": preparar})`;
+$$('[data-copia]').forEach(b=>b.onclick=async()=>{try{await navigator.clipboard.writeText($('#'+b.dataset.copia).textContent);const t=b.textContent;b.textContent='Copiado ✓';setTimeout(()=>b.textContent=t,1400)}catch(e){b.textContent='Selecciona y copia'}});
+
+/* ---------- checklist ---------- */
+const TODO=[
+ ['Define el formato','¿Qué video hace tu plugin? Un juego, un mapa, una historia… Decide si es short (9:16), largo (16:9) o ambos, y quién decide los segundos: el juego o el guion.'],
+ ['Crea la carpeta con el esqueleto','<code>plugins/&lt;id&gt;/</code> con <code>plugin.json</code>, <code>INSTRUCCIONES.md</code>, <code>pipeline/</code> y <code>titulos/</code>. El <code>id</code> es el nombre de la carpeta.'],
+ ['Completa plugin.json','Todos los campos obligatorios de la tabla, con <code>ayuda</code> en cada ajuste. Sube la <code>version</code> en cada cambio.'],
+ ['Escribe INSTRUCCIONES.md y NO_HACER.md','El método paso a paso para Claude: cómo se construye, qué entrega, reglas de guion y voz, errores ya vistos.'],
+ ['Haz la página del juego','Determinista, paso fijo y con la API <code>__ready / __frame / __adv / __sim / __cues / __log</code>. Pruébala abriendo <code>index.html?seed=1</code> en el navegador.'],
+ ['Escribe el pipeline (la receta)','Un script corto que llama a <code>pipeline.correr({...})</code>. Sin scripts de voz, mezcla, render ni unión.'],
+ ['Añade ideas, títulos y (si quieres) agentes','Un módulo de ideas, los generadores de título/descripción y los agentes de formato y diseño.'],
+ ['Declara lo que configura el usuario','<code>ajustes</code> para lo que se elige una vez (música, calidad, claves) y <code>config_video</code> para lo que se elige por video.'],
+ ['Empaqueta y verifica','Comprime en un .zip y súbelo en Plugins: la precarga te dirá si cumple el esqueleto antes de instalar.'],
+ ['Haz un video de prueba completo','Pide una idea → borrador → voz → borrador con voz → unir. Si algo falla, el panel muestra el motivo en Trabajos.']
+];
+(function(){const ul=$('#pasos'),bar=$('#barra');let h=lee('guia-pasos',[]);
+ ul.innerHTML=TODO.map((p,i)=>`<li data-i="${i}" class="${h.includes(i)?'hecho':''}"><input type="checkbox" id="p${i}" ${h.includes(i)?'checked':''}><label for="p${i}"><b>${i+1}. ${p[0]}</b><span>${p[1]}</span></label></li>`).join('');
+ const act=()=>{bar.style.width=Math.round(100*h.length/TODO.length)+'%'};act();
+ ul.onchange=e=>{const li=e.target.closest('li'),i=+li.dataset.i;h=e.target.checked?[...new Set([...h,i])]:h.filter(x=>x!==i);li.classList.toggle('hecho',e.target.checked);guarda('guia-pasos',h);act()}})();
+
+/* ---------- nav activo ---------- */
+(function(){const links=$$('#nav a'),sec=links.map(a=>$(a.getAttribute('href')));
+ if(!('IntersectionObserver' in window))return;const io=new IntersectionObserver(es=>{es.forEach(e=>{if(e.isIntersecting){links.forEach(a=>a.classList.toggle('on',a.getAttribute('href')==='#'+e.target.id))}})},{rootMargin:'-30% 0px -60% 0px'});sec.forEach(s=>s&&io.observe(s))})();
+</script>
+</body>
+</html>

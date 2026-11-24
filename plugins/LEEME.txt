@@ -1,0 +1,1 @@
+Aquí van los plugins (cada uno en su carpeta con un plugin.json). El panel los detecta solo y los muestra en la pestaña Plugins.\nDescarga un plugin desde la pestaña Plugins de otro DevPanel y descomprímelo aquí.
