@@ -7,7 +7,7 @@ Uso:
   python voz_partes.py CARPETA              -> genera solo las partes nuevas o cambiadas, las une y escribe tiempos REALES + voz/ (voz_completa.wav, 1_NN.wav, textos.json, completa.json, plan.json).
   python voz_partes.py CARPETA --rehacer    -> ignora la caché.        --parte KEY…  -> otra toma de esas partes.        --libre  -> fuerza el modo libre.
 Variables: PLUGIN_DIR (para leer voz.modo), DEVPANEL (carpeta del panel), DEVPANEL_TMP (temporales). Caché: audiolibro/partes/."""
-import os, sys, json, re, pathlib, urllib.request, wave, subprocess, hashlib, shutil
+import os, sys, json, re, pathlib, urllib.request, urllib.error, wave, subprocess, hashlib, shutil
 os.environ["TEMP"] = os.environ["TMP"] = os.environ.get("DEVPANEL_TMP") or os.environ.get("TEMP") or "."
 import hashlib as _hl
 def _firma_guion(_R):   # claves y textos del guion (no sus tiempos: la voz los reescribe al terminar)
@@ -24,11 +24,13 @@ if not os.environ.get("VOZ_HIJO") and "--borrador" not in sys.argv:   # GUARDIA:
 import numpy as np, imageio_ffmpeg
 FF = imageio_ffmpeg.get_ffmpeg_exe(); R = pathlib.Path(sys.argv[1]).resolve(); A = R / "audiolibro"; PART = A / "partes"; PART.mkdir(parents=True, exist_ok=True); (R / "voz").mkdir(exist_ok=True)
 # La voz es del DEVPANEL: la configuración sale de voz_config.json (Ajustes → Voz); el plugin solo declara su modo.
-PANEL = pathlib.Path(__file__).resolve().parent.parent; _c = {"perfil": "MI VOZ", "velocidad": 1.12, "semilla": 12345, "pasos": 32, "ritmo_estimado": 0.0775, "pausa_ms": 450, "pausa_min_ms": 200}
+PANEL = pathlib.Path(__file__).resolve().parent.parent; _c = {"perfil": "MI VOZ", "velocidad": 1.1, "semilla": 12345, "pasos": 32, "ritmo_estimado": 0.0775, "pausa_ms": 400, "pausa_min_ms": 200}
 try: _c.update(json.loads((PANEL / "voz_config.json").read_text(encoding="utf-8")))
 except Exception: pass
 SEED = int(_c["semilla"]); NSTEP = int(_c["pasos"]); SR = 48000; RATE = float(_c["ritmo_estimado"]); PAUSA_DEF = int(_c["pausa_ms"]); PAUSA_MIN = int(_c["pausa_min_ms"]); SPEED = float(_c["velocidad"]); PERFIL = str(_c["perfil"])
 MOTOR = str(_c.get("motor", "voicestudio")).lower(); HFTOK = str(_c.get("hf_token") or "").strip() or None   # motor: «voicestudio» (local) o «huggingface» (API gratuita VoxCPM; si falla una frase pasa a Voice Studio)
+LOCAL = MOTOR in ("piper", "kokoro", "edge", "clon")   # voces locales/por internet SIN Voice Studio (motor/voz_local.py); «voicestudio» sigue con su camino original de abajo
+if LOCAL: sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent)); import voz_local
 def _vs_auto():   # dónde está Voice Studio si no se dijo en devpanel.json -> "voice_studio_dir" (sin rutas de nadie): variable VOICESTUDIO_DIR o sitios habituales
     import os
     for b in (os.environ.get("VOICESTUDIO_DIR"), os.path.join(os.environ.get("LOCALAPPDATA", ""), "Programs", "VoiceStudio"), os.path.join(os.environ.get("ProgramFiles", ""), "VoiceStudio"), os.path.join(os.path.expanduser("~"), "VoiceStudio")):
@@ -82,11 +84,19 @@ if BORRADOR:
 def vs_abierto():
     try: urllib.request.urlopen("http://127.0.0.1:3900/health", timeout=5); return True
     except Exception: return False
-if MOTOR != "huggingface" and not vs_abierto(): sys.exit("Voice Studio esta CERRADO (puerto 3900). Abrelo y repite.")
-print("MOTOR DE VOZ: %s" % ("Hugging Face (VoxCPM2 por API; respaldo Voice Studio)" if MOTOR == "huggingface" else "Voice Studio (local)"), flush=True)
+if MOTOR != "huggingface" and not LOCAL and not vs_abierto(): sys.exit("Voice Studio esta CERRADO (puerto 3900). Abrelo y repite.")
+print("MOTOR DE VOZ: %s" % ("Hugging Face (VoxCPM2 por API; respaldo Voice Studio)" if MOTOR == "huggingface" else ("%s, voz %s" % (MOTOR.capitalize(), voz_local.voz_valida(MOTOR, PERFIL))) if LOCAL else "Voice Studio (local)"), flush=True)
+_SAT = 0   # reintentos cuando Voice Studio responde «saturado» (atiende de a una frase)
 def tts(tx, ns=NSTEP, perfil=None, seed=None):   # perfil: opcional por línea del guion («perfil» en guion/1.json); si no, el perfil general
     b = {"model": "omnivoice", "input": tx + ",---------------------------------- final", "voice": (perfil or PERFIL), "response_format": "wav", "language": "es", "seed": (SEED if seed is None else seed), "num_step": ns, "speed": SPEED}
-    raw = urllib.request.urlopen(urllib.request.Request("http://127.0.0.1:3900/v1/audio/speech", data=json.dumps(b).encode(), headers={"Content-Type": "application/json"}), timeout=600).read()
+    try: raw = urllib.request.urlopen(urllib.request.Request("http://127.0.0.1:3900/v1/audio/speech", data=json.dumps(b).encode(), headers={"Content-Type": "application/json"}), timeout=600).read()
+    except urllib.error.HTTPError as e:   # el motivo real viene en el cuerpo de la respuesta: se muestra claro en vez de «HTTP Error 500»
+        sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent)); import voz_local as _vl
+        try: cuerpo = json.loads(e.read().decode("utf-8", "replace")).get("error", {}).get("message", "")
+        except Exception: cuerpo = ""
+        global _SAT
+        if ("saturated" in cuerpo or "safe to retry" in cuerpo) and _SAT < 30: _SAT += 1; print("  Voice Studio está ocupado con otra generación; espero 8 s y reintento (%d)" % _SAT, flush=True); import time as _tt; _tt.sleep(8); return tts(tx, ns, perfil, seed)
+        sys.exit("Voice Studio no pudo generar la frase: " + (_vl.vs_error_amigable(cuerpo, b["voice"]) if cuerpo else "error %s" % e.code))
     tmp = A / "tmp_parte.wav"; tmp.write_bytes(raw); w = wave.open(str(tmp)); sr = w.getframerate(); ch = w.getnchannels(); y = np.frombuffer(w.readframes(w.getnframes()), "<i2").astype(np.float32) / 32768; w.close(); tmp.unlink()
     return (y.reshape(-1, ch).mean(1) if ch > 1 else y), sr
 _WM = None; CUTV = 13
@@ -102,7 +112,9 @@ def corridas(y, sr, gap=.08):   # rachas de voz; huecos menores que `gap` s no s
 def corta_final(y, sr, texto):   # «final» es la MARCA: la última racha de voz detrás de un hueco. Se corta justo antes, anclado al texto real (Whisper); si «final» no se pronunció no se corta nada
     global _WM
     import unicodedata, difflib
-    from faster_whisper import WhisperModel
+    try: from faster_whisper import WhisperModel
+    except ImportError:   # sin Whisper instalado: solo el criterio de silencios (la marca es la última racha corta tras un hueco largo)
+        sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent)); import voz_local as _vl; return _vl._corta_marca(y, sr)
     runs = corridas(y, sr)
     if _WM is None: _WM = WhisperModel("small", device="cpu", compute_type="int8")
     tmp = A / "tmp_final.wav"; w = wave.open(str(tmp), "wb"); w.setnchannels(1); w.setsampwidth(2); w.setframerate(sr); w.writeframes((np.clip(y, -1, 1) * 32767).astype("<i2").tobytes()); w.close()
@@ -205,7 +217,7 @@ for _k in PARTES: INT[_k] = INT.get(_k, 0) + 1
 if PARTES: INTF.write_text(json.dumps(INT), encoding="utf8")
 parts = []; nuevas = 0
 for i in range(n):
-    ns_ = PASOS[INT.get(G[i]["key"], 0) % len(PASOS)]; sd_ = SEED + 7919 * INT.get(G[i]["key"], 0); h = hashlib.md5(json.dumps([txs[i], sd_, ns_, SPEED, (G[i].get("perfil") or PERFIL), "v6final"]).encode()).hexdigest()[:10]; f = PART / ("%02d_%s_%s.npz" % (i + 1, G[i]["key"], h))
+    ns_ = PASOS[INT.get(G[i]["key"], 0) % len(PASOS)]; sd_ = SEED + 7919 * INT.get(G[i]["key"], 0); h = hashlib.md5(json.dumps([txs[i], sd_, ns_, SPEED, (G[i].get("perfil") or PERFIL), "v6final"] + ([MOTOR, voz_local.voz_valida(MOTOR, G[i].get("perfil") or PERFIL)] if LOCAL else [])).encode()).hexdigest()[:10]; f = PART / ("%02d_%s_%s.npz" % (i + 1, G[i]["key"], h))
     if f.exists() and not REHACER:
         z = np.load(f); sr = int(z["sr"])
         if "cutv" in z.files and int(z["cutv"]) == CUTV: parts.append((z["y"], sr)); continue
@@ -214,7 +226,9 @@ for i in range(n):
             if len(idx): y = y[max(0, idx[0] - int(.03 * sr)): idx[-1] + int(.12 * sr)]
             guarda_parte(f, y=y, sr=sr, raw=z["raw"], cutv=CUTV); parts.append((y, sr)); print("parte %d/%d %s recortada de nuevo (sin pedir voz)" % (i + 1, n, G[i]["key"]), flush=True); continue
     via = "Voice Studio"; y_raw = None
-    if MOTOR == "huggingface":
+    if LOCAL:   # Piper / Kokoro / edge / clon: la frase sale entera, sin marca «final» que cortar
+        y_raw, sr = voz_local.sintetizar(MOTOR, G[i].get("perfil") or PERFIL, txs[i], SPEED, A / "tmp_local", FF); y = y_raw; cortado = True; via = MOTOR.capitalize()
+    elif MOTOR == "huggingface":
         y_hf, sr_hf, ok_hf = hf_parte(txs[i], G[i].get("perfil"))
         if y_hf is not None and (ok_hf or not vs_abierto()): y_raw, sr, y, cortado, via = y_hf, sr_hf, y_hf, True, ("Hugging Face" if ok_hf else "Hugging Face (sin verificar)")
     if y_raw is None:   # motor local (o respaldo cuando Hugging Face no entregó la frase entera)

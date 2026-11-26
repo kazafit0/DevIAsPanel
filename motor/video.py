@@ -97,7 +97,7 @@ class Proyecto:
         r = subprocess.run(PYX + [str(PANEL / "motor" / "voz_partes.py"), str(self.R), *extra], cwd=str(self.R), env=dict(self.ENV, PLUGIN_DIR=str(self.PLUGIN)))
         if r.returncode != 0:
             hechas = len(list((self.R / "audiolibro" / "partes").glob("*.npz"))) if (self.R / "audiolibro" / "partes").exists() else 0
-            sys.exit("La voz se cortó (¿Voice Studio abierto, o se movió/renombró la carpeta del video?). Las %d partes ya hechas se conservan: vuelve a pulsar «Generar voz» y solo hará las que faltan." % hechas)
+            sys.exit("La voz se cortó (¿se movió o renombró la carpeta del video?). Las %d partes ya hechas se conservan: vuelve a pulsar «Generar voz» y solo hará las que faltan." % hechas)
         if "--borrador" not in extra and self.tiempos().get("estimado"): sys.exit("La voz no quedó medida (tiempos aún estimados).")
     # ---------- MÚSICA, MEZCLA, UNIÓN ----------
     def musica(self):

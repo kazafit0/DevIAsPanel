@@ -24,7 +24,7 @@ Un **plugin** es una carpeta dentro de `plugins/` que enseña al DevIAs Panel a 
 | Lo hace el PLUGIN | Lo hace el PANEL (el plugin NO lo trae) |
 |---|---|
 | La **escena**: la página (canvas) que se graba y su estilo visual | **Grabar** (GPU, trabajadores en paralelo, borrador 20 fps, final 30 fps, regrabar un tramo) |
-| El **guion** (reglas, estructura, tono) y la **ficha** de cada video | **Voz** (Voice Studio), partes, tiempos reales |
+| El **guion** (reglas, estructura, tono) y la **ficha** de cada video | **Voz** (Piper/Kokoro), partes, tiempos reales |
 | Las **ideas** que se ofrecen al usuario | **Mezcla**, música de fondo, efectos, unión |
 | Los **títulos, descripciones y etiquetas** | **Registro** del video, progreso, pestañas, cola de pedidos |
 | Los **ajustes** del subpanel y sus reglas (`INSTRUCCIONES.md`, `NO_HACER.md`…) | **Verificar** el plugin y decidir si se puede instalar |
@@ -81,7 +81,7 @@ Todos los campos marcados «obligatorio» los comprueba el verificador (`/api/pl
 | `titulos` | sí | `{dir, tipos: {tipo: modulo}}` → cada módulo define `generar(pid, f, lote, usados, largo)` |
 | `guion` | recomendado | `{gancho_segundos, sin_decir[], publico, formato, tono, modos}` |
 | `plantillas` | recomendado | `{dir, motor, base}` (rutas que deben existir) |
-| `requisitos` | sí | `{python[], servicios[], archivos[]}`: los paquetes, servicios (`voice-studio`) y **archivos que el plugin necesita (todos deben existir)** |
+| `requisitos` | sí | `{python[], servicios[], archivos[]}`: los paquetes, servicios y **archivos que el plugin necesita (todos deben existir)** |
 | `ajustes` | sí | lista del subpanel (sección 5.6) |
 | `config_video` | opcional | campos que se piden EN IDEAS para cada video (sección 5.7) |
 | `agentes` | opcional | `{"modulo": "agentes/agentes_<id>.py"}` con `formato(ctx)` y `diseno(ctx)` |

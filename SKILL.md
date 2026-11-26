@@ -8,18 +8,19 @@ description: DevIAs Panel (http://localhost:8820) — el panel de producción de
 **El panel es el skill.** Trae el motor común (pedidos, cola, grabador, voces, publicar/títulos, memoria, avisos). **Cada formato de video es un plugin** (`plugins/<id>/` con su `plugin.json`): las IDEAS, el guion, el diseño y las reglas de cada video son del plugin, no del panel. Solo hay una vista del panel (la v2, `static/admin.html`).
 
 ## INSTALACIÓN GUIADA (primera vez): sigue EXACTAMENTE este guion
+**Solo si falta algo:** si `python instalar.py --estado` ya muestra `paquetes_faltan` vacío, `chromium` en true y `voces.instaladas` en true, y `GET http://localhost:8820/api/senal` dice `primer_uso: false`, **ya está instalado: no reinstales** (puede haberlo instalado el otro agente); pasa directo a «devias».
 Habla en español sencillo, un paso a la vez, y no avances hasta cumplir el anterior.
 1. **Bienvenida (siempre lo primero).** Escribe: «**Bienvenido al DevIAs Panel.** Si estás de acuerdo con instalar este skill, dale clic en «Sí, instalar».» y ofrece las opciones «Sí, instalar» / «No ahora» (usa AskUserQuestion). Si dice que no, no hagas nada más.
 2. **Dependencias.** Di «Estoy instalando las dependencias que se necesitan…». Ejecuta `python instalar.py --instalar-paquetes` (instala Python 3.10+ si falta avisando al usuario, los paquetes `playwright pillow numpy imageio-ffmpeg` y Chromium). Cuenta en una línea qué quedó ✔ (usa `python instalar.py --estado`, que imprime JSON).
 2b. **Carpeta de temporales (pregúntalo SIEMPRE).** Pregunta: «¿Dónde quieres que el panel guarde sus archivos temporales (grabaciones y uniones de video)? Elige una carpeta con buen espacio libre, o déjalo en la de por defecto (`_tmp` dentro del panel).» Guarda la respuesta con `python instalar.py --temp "RUTA"` (si deja la de por defecto, no pases `--temp`). Dile que después lo puede cambiar en **Ajustes → Carpeta de temporales**.
-3. **Voice Studio (lo instala el usuario a mano).** Mira `voice_studio.instalado` en `--estado`. Si falta, di: «**Para instalar Voice Studio necesito que lo hagas manualmente.** Cuando termines, escribe «Instalado».» y ESPERA a que escriba «Instalado» (no lo intentes instalar tú). Luego vuelve a ejecutar `--estado` y confirma. Si ya estaba, dilo y sigue.
+3. **Voces (Piper y Kokoro).** Mira `voces.instaladas` en `--estado`. Si faltan, ejecuta `python instalar_voces.py` (descarga `es_MX-claude-high` y las voces Kokoro; Kokoro necesita Node.js 22+ y `pip install kokoro-onnx soundfile`) y vuelve a ejecutar `--estado` para confirmar. Si ya estaban, dilo y sigue. **Voice Studio es opcional:** lo activa el usuario en Ajustes → Voz → Voice Studio; si lo elige, el panel lo enciende solo al generar voz (no lo instales tú).
 4. **Abrir el panel.** Ejecuta `iniciar_devpanel.bat` (enciende el servidor y abre el navegador). La primera vez el panel muestra un **popup de bienvenida** que explica que Claude manda una **señal cada 30 minutos** (el usuario puede elegir otro tiempo; queda en Ajustes → Conexión con Claude). Espera a que el usuario lo acepte (`GET /api/senal` → `primer_uso: false`).
 5. **Conectar.** Lee `senal_min` de `GET /api/senal` y arma la conexión (sección siguiente). El panel queda corriendo con un **reloj** (⏱ mm:ss) en el chip «Claude escuchando» de la parte superior. Di «Listo, el DevIAs Panel está funcionando» y termina la instalación.
 
 ## PALABRA CLAVE: «devias» (para reactivar el panel cuando se apaga y se prende)
 Cuando el usuario escriba **«devias»** (o `/devias-panel`, «activa devias», «conecta el panel»), haz esto sin preguntar:
 1. Si el panel no responde en `http://localhost:8820/api/estado`, **enciéndelo** (`iniciar_devpanel.bat`; si el servidor no sube en ~15 s, dile al usuario qué falló) y espera a que responda.
-2. Si Voice Studio está cerrado y el usuario va a generar voz, dilo (el panel lo enciende solo al iniciar).
+2. Si faltan las voces y el usuario va a generar voz, dilo y ofrece `python instalar_voces.py`.
 3. Re-arma la conexión: Monitor `python -u escucha.py` + la tarea de señal cada `senal_min` minutos (sección siguiente) y renueva el tiempo (`POST /api/vivo_tiempo`).
 4. Lee `pedidos.json` y atiende lo pendiente. Responde en una línea: «DevIAs Panel conectado · señal cada N min · N pedidos pendientes».
 Esta palabra sirve igual después de apagar y prender la PC, tras compactar la conversación o cuando el reloj del panel diga «Claude desconectado».
@@ -39,6 +40,7 @@ Esta palabra sirve igual después de apagar y prender la PC, tras compactar la c
 2. Lee `plugins/<id>/INSTRUCCIONES.md` (reglas del formato) y `NO_HACER.md`/`memoria.md` antes de tocar un video.
 3. Informa siempre en el panel: `python pedido.py --etapa/--cambio/--pregunta/--error` (las preguntas y bloqueos salen en la campanita, no solo en el chat).
 4. La voz y la unión las inicia **solo el usuario**.
+5. **Otro agente puede estar atendiendo** (p. ej. Codex de ChatGPT cuando a Claude se le acaba el uso). Antes de empezar un pedido corre `python pendientes.py --soy claude`: si el panel está dirigido a «codex» (Ajustes → ¿Quién atiende los pedidos?) no tomes nada, y si dice «lo atiende codex» no toques ese pedido. Al avisar el progreso añade siempre `--yo claude` a `pedido.py` para marcar que lo atiendes tú (la marca caduca a los 20 min sin avisos). Ver `AGENTS.md`.
 
 ## Motor del DevIAs Panel (voz, mezcla, render, unión) — NO es de los plugins
 - `motor/video.py` = biblioteca común de los pipelines (grabar, voz, música, mezclar, unir, registrar, avance). `motor/voz_partes.py` = la voz (config en Ajustes → Voz, `voz_config.json`). `motor/mezcla.py` = la mezcla por escenas (lee `escenas.json`, `sfx_plan.json`, `sfx_cues.json`, `music/`). `grabador/` = el render (GPU + trabajadores en paralelo; `GRAB_MODO=pagina` para escenas con HUD en HTML).

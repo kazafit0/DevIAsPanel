@@ -9,7 +9,8 @@ El DevIAs Panel es el panel de producción de videos. Se instala en este orden; 
 | **Paquetes de Python** (playwright, pillow, numpy, imageio-ffmpeg) | Grabar, imágenes, ffmpeg | `python instalar.py --instalar-paquetes` (lo hace solo). |
 | **Chromium del grabador** | Graba los juegos y mapas | Lo instala el comando anterior, o `python -m playwright install chromium`. |
 | **Tarjeta de video NVIDIA** (≈6 GB) | La voz y la grabación rápida | Instala los drivers de NVIDIA. Sin ella el panel abre, pero la voz no funciona. |
-| **Voice Studio** | Genera la voz de los videos | Es un programa aparte: instálalo y escribe su carpeta `project` (la que tiene `backend` y `.venv`) en `devpanel.json` → `"voice_studio_dir"`. El panel lo enciende solo al generar voz. |
+| **Voces locales (Piper y Kokoro)** | Generan la voz de los videos | Ejecuta `python instalar_voces.py`. Kokoro necesita además Node.js 22+ y `python -m pip install kokoro-onnx soundfile`. |
+| **Voice Studio** (opcional) | Usar tus propios perfiles de voz | Programa aparte. Se activa en Ajustes → Voz → Voice Studio; el panel lo enciende y apaga. |
 | **Música de fondo** (opcional) | Música bajo la voz | Un mp3 en `musica_fondo/`; se elige en Plugins → Ajustes. |
 
 ## 2. Instalar
@@ -20,11 +21,11 @@ El DevIAs Panel es el panel de producción de videos. Se instala en este orden; 
 ## 3. Abrir el panel = activar todo
 Doble clic en **`iniciar_devpanel.bat`** (abre `http://localhost:8820/static/admin.html`). Al encender el panel se activa todo lo que depende de él:
 - **El servidor del panel** y su vista.
-- **Voice Studio (la API de voz)**: se enciende solo al arrancar el panel, si está instalado. Si prefieres que no ocupe la tarjeta de video hasta que lo necesites, pon `"voz_al_iniciar": false` en `devpanel.json` y se encenderá solo al generar la voz.
+- **Voces**: no hay nada que encender; Piper y Kokoro se ejecutan solo cuando generas la voz de un video. Voice Studio (opcional) se enciende solo al generar con él.
 - **El grabador** (Chromium) queda listo para usarse; arranca cuando grabas un borrador.
-- **Lo único que no arranca solo es la conexión con Claude**: se hace una vez por conversación escribiendo `/devpanel` (paso 4).
+- **Lo único que no arranca solo es la conexión con tu agente (Claude o Codex)**: se hace una vez por conversación escribiendo `/devpanel` (paso 4).
 
-Para apagarlo todo: `detener_devpanel.bat` (apaga el panel; Voice Studio se libera desde el panel o al cerrarlo). El panel arranca **sin plugins**: instala los formatos de video desde la pestaña **Plugins** (un `.zip` por formato); el panel revisa que cumplan su estructura y no instala los que no.
+Para apagarlo todo: `detener_devpanel.bat`. El panel arranca **sin plugins**: instala los formatos de video desde la pestaña **Plugins** (un `.zip` por formato); el panel revisa que cumplan su estructura y no instala los que no.
 
 ## 4. Conectar con Claude
 Con el skill **`devpanel`** activado en la conversación, Claude se conecta solo (latido + escucha) y atiende los pedidos que mandes desde el panel. Si la conversación se reinicia, vuelve a escribir `/devpanel`.

@@ -26,7 +26,7 @@ Pides un video  →  Claude lo piensa y arma el BORRADOR (sin voz)  →  tú lo 
 
 - **El panel viene sin plugins y sin configuración.** Al instalarlo no hay ideas ni formatos hasta que instales y actives un plugin.
 - **Lo que necesita un plugin lo pone el plugin** en su carpeta `recursos/` (por ejemplo `recursos/paises.json` con la lista de países). El panel lo lee del plugin **activo**; si cambias de plugin, cambia la lista (no hace falta reiniciar).
-- **Tus claves son tuyas y no viajan con el panel:** la clave de Freesound se pone en el ajuste del plugin (*Plugins → Configurar*); el token de Hugging Face (opcional) en *Ajustes → Voz*. Quedan solo en tu equipo.
+- **Tus claves son tuyas y no viajan con el panel:** la clave de Freesound se pone en el ajuste del plugin (*Plugins → Configurar*). Queda solo en tu equipo.
 
 ---
 
@@ -37,7 +37,6 @@ Pides un video  →  Claude lo piensa y arma el BORRADOR (sin voz)  →  tú lo 
 | **Claude escuchando ⏱ mm:ss** (verde) | Claude está conectado. El reloj cuenta el tiempo hasta la próxima señal. |
 | **Claude desconectado** (rojo) | Claude no ha mandado señal. Ve a *Ajustes → Sumar minutos* o escríbele a Claude «conéctate». |
 | **🚨 Emergencia** | Si Claude no responde: deja el aviso y lo despierta sin que escribas. |
-| **Voice Studio listo / cerrado** | Si la voz local está disponible. |
 | **Campanita** | Avisos y preguntas de Claude («Marcar leídos» las limpia). |
 | **Barra de abajo** | El trabajo que se está ejecutando (voz, grabación, unión) con su porcentaje. |
 
@@ -95,11 +94,12 @@ Cada formato de video. Aquí:
 Esta misma guía, dentro del panel.
 
 ### Ajustes (todo lo de tu equipo y tu conexión)
-- **Conexión con Claude:** estado, reloj, **Sumar minutos** y la **señal de conexión** (cada cuántos minutos Claude manda la señal: 15 a 120 min; por defecto 30).
-- **Memoria para grabar:** tarjeta de video y RAM libres, y **Liberar memoria** (apaga Voice Studio) para que el render use 3 trabajadores; **Encender Voice Studio (solo API)** vuelve a prenderlo. Antes de grabar un video largo conviene liberar memoria.
+- **Conexión con tu agente (Claude o Codex):** estado, reloj, **Sumar minutos** y la **señal de conexión** (cada cuántos minutos manda la señal: 15 a 120 min; por defecto 30).
+- **¿Quién atiende los pedidos?:** elige **Claude** o **Codex (ChatGPT)**; los pedidos llegan solo al elegido y el otro queda desactivado. La barra superior muestra siempre cuál atiende y si está conectado. Guía completa: `GUIA_AGENTES.md`.
+- **Memoria para grabar:** tarjeta de video y RAM libres. Piper y Kokoro no se quedan en memoria; **Voice Studio** (si lo usas) sí ocupa unos 5 GB mientras está encendido: aquí está **Liberar memoria (apagar Voice Studio)** y **Encender Voice Studio (solo API)**.
 - **Carpeta de temporales:** dónde guarda el panel sus archivos de trabajo (grabaciones, uniones). Vacío = `_tmp` dentro del panel. Cámbiala escribiendo tu ruta y **Guardar** (se aplica al reiniciar el panel).
 - **Tu PC:** Windows y su versión, equipo, procesador, RAM total y libre, tarjeta(s) de video con su memoria, y **cómo graba el panel** (con tarjeta de video o solo procesador y RAM).
-- **Voz del DevIAs Panel:** motor de voz (*Voice Studio local* o *Hugging Face*), perfil de voz, velocidad y pausa. Vale para todos los videos de todos los plugins.
+- **Voz del DevIAs Panel:** tres pasos: ver con qué voz hablan tus videos, **elegir el motor** (Voces del panel o Voice Studio) y **elegir la voz** (Escuchar / Usar esta voz). Abajo, **Configuración general** (velocidad y pausa; por defecto 1.1 y 400 ms, con el botón **Valores predeterminados**) y un solo botón **Guardar configuración**. Vale para todos los videos de todos los plugins.
 
 ---
 
@@ -132,9 +132,11 @@ Si el panel se apagó, apagaste la PC o la conversación con Claude se reinició
 
 ## 6. Voz
 
-- **Voice Studio (local):** usa tu tarjeta NVIDIA y tu perfil de voz; es la opción recomendada. **Se instala a mano.** El panel lo busca solo; si lo tienes en otra carpeta, define la variable `VOICESTUDIO_DIR` o escribe `voice_studio_dir` en `devpanel.json`.
-- **Tu perfil de voz:** el panel trae el perfil por defecto `MI VOZ`; en *Ajustes → Voz* escribe el nombre exacto de **tu** perfil de Voice Studio.
-- **Hugging Face:** voz en la nube (gratis, con tu voz de referencia) que deja tu tarjeta libre; puede tardar más o cortar frases muy largas.
+- **Piper (local):** voz `es_MX-claude-high`; rápida y sin internet. Se instala con `python instalar_voces.py`.
+- **Kokoro (local):** voces `em_alex` (neutra) y `em_santa` (cálida); necesita Node.js 22+. Es más lenta que Piper porque carga su modelo en cada frase. Suena con acento más «de inglés» que Piper.
+- **Jorge (edge-tts):** voz neuronal de México; va por **internet** (el texto se envía a Microsoft).
+- **Voice Studio (opcional):** tus propios perfiles. Pulsa «Voice Studio»: busca su carpeta solo (o usa *Buscar en el PC*) y **detecta tus perfiles de voz** automáticamente; si creas uno nuevo en Voice Studio, pulsa **Detectar perfiles de voz**. Usa el botón de encendido (se enciende solo al generar voz). Un perfil cuyo audio de referencia dura más de 20 s necesita el modelo de voz a texto (Whisper) de Voice Studio.
+- **Voces subidas:** las clonadas y las Piper que agregaste a `voces_tts` se pueden **borrar** desde su tarjeta (van a `_papelera/voces`, recuperables).
 - La voz se genera **por frases** y cada frase cae en su segundo del guion. Solo se regeneran las frases cambiadas.
 - *Rehacer* una frase siempre da **otra toma** (otra semilla).
 
@@ -144,7 +146,7 @@ Si el panel se apagó, apagaste la PC o la conversación con Claude se reinició
 
 - Con **tarjeta NVIDIA ≥ 6 GB** se graba por GPU con varios trabajadores en paralelo.
 - Sin ella se graba con el procesador (más lento).
-- Si la grabación falla por memoria, el panel reintenta con menos trabajadores; también puedes **Liberar memoria** (apaga Voice Studio) antes de grabar.
+- Si la grabación falla por memoria, el panel reintenta con menos trabajadores; cierra otros programas que usen la tarjeta antes de grabar.
 - Los videos se guardan en `series/<id>/` (`salida_mudo/` = borradores, `salida/` = final).
 
 ---
@@ -157,7 +159,7 @@ Si el panel se apagó, apagaste la PC o la conversación con Claude se reinició
 | Claude no responde a un pedido | Botón **🚨 Emergencia**. |
 | «Faltan voces» al unir | Pulsa **Generar voz** y espera a que terminen todas. |
 | La voz suena mal en una frase | **Rehacer la voz de esa frase** (otra toma). |
-| «Voice Studio cerrado» | **Ajustes → Encender Voice Studio**. |
+| «Falta la voz» | Ejecuta `python instalar_voces.py`. |
 | Grabación lenta o sin memoria | **Ajustes → Liberar memoria** y reintenta. |
 | El plugin no se instala | El panel muestra el informe: le falta algo del esqueleto `plugin.json`. |
 

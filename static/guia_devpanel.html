@@ -150,7 +150,7 @@ footer{padding:44px 0 60px;color:var(--mut);font-size:14px;border-top:1px solid 
     <tr><td class="f">static/</td><td>La vista: <code>admin.html</code> + <code>admin_nuevo.js</code> (vista administrativa) y <code>index.html</code> (vista clásica).</td></tr>
     <tr><td class="f">motor/video.py</td><td>Biblioteca de los pipelines: avance, registrar, grabar, voz, música, efectos, pegar voz, mezclar, unir.</td></tr>
     <tr><td class="f">motor/pipeline.py</td><td>El flujo único: <b>borrador → voz → borrador con voz → unir</b>. Cada plugin solo aporta su «receta».</td></tr>
-    <tr><td class="f">motor/voz_partes.py</td><td>La voz con Voice Studio, <b>por partes</b>: cada frase se guarda al terminar y, si se corta, «Seguir» retoma desde ahí.</td></tr>
+    <tr><td class="f">motor/voz_partes.py</td><td>La voz con Piper o Kokoro (locales), <b>por partes</b>: cada frase se guarda al terminar y, si se corta, «Seguir» retoma desde ahí.</td></tr>
     <tr><td class="f">motor/mezcla.py</td><td>Mezcla voz + música + efectos por escenas (lee <code>escenas.json</code>, <code>sfx_cues.json</code>, <code>sfx_plan.json</code>).</td></tr>
     <tr><td class="f">motor/sfx_freesound.py</td><td>Baja efectos de Freesound (solo CC0) con la «Clave API de Freesound» del plugin y los cachea en <code>sfx_cache/</code>.</td></tr>
     <tr><td class="f">grabador/</td><td>Graba la página del juego a video: <code>grab_gpu.py</code> (WebCodecs, varios trabajadores), respaldo <code>grab_paralelo.py</code>, <code>regrabar_tramo.py</code>.</td></tr>
@@ -263,12 +263,12 @@ footer{padding:44px 0 60px;color:var(--mut);font-size:14px;border-top:1px solid 
     <tr><td class="f">playwright · pillow · numpy · imageio-ffmpeg</td><td>Grabar, imágenes, audio y ffmpeg. Los instala <code>python instalar.py --instalar-paquetes</code>.</td><td><span class="ob">Obligatorio</span></td></tr>
     <tr><td class="f">Chromium (playwright)</td><td>El navegador del grabador.</td><td><span class="ob">Para video</span></td></tr>
     <tr><td class="f">Tarjeta NVIDIA (~6 GB)</td><td>La voz y la grabación rápida por GPU.</td><td><span class="ob">Para voz/video</span></td></tr>
-    <tr><td class="f">Voice Studio</td><td>Genera la voz. Su carpeta se indica en <code>devpanel.json → voice_studio_dir</code>; el panel lo enciende al arrancar.</td><td><span class="ob">Para voz</span></td></tr>
+    <tr><td class="f">Voces Piper / Kokoro</td><td>Generan la voz en tu PC (Jorge, por internet). Se instalan con <code>python instalar_voces.py</code>; no hay nada que encender. Voice Studio es opcional (se activa en Ajustes → Voz).</td><td><span class="ob">Para voz</span></td></tr>
     <tr><td class="f">Clave API de Freesound</td><td>Efectos de sonido (solo CC0). Se pega en los ajustes del plugin. Sin ella el video se une sin efectos.</td><td><span class="op">Opcional</span></td></tr>
     <tr><td class="f">Un mp3 de fondo</td><td>Música bajo la voz (ajuste del plugin).</td><td><span class="op">Opcional</span></td></tr>
     <tr><td class="f">Claude con el skill «devpanel»</td><td>Atiende los pedidos y construye el video.</td><td><span class="ob">Para crear</span></td></tr>
     </tbody></table></div>
-  <div class="nota">Orden de instalación: <b>instalar → requisitos en orden → abrir el panel (activa Voice Studio) → activar el skill en la conversación → instalar plugins</b>. El panel arranca sin plugins.</div>
+  <div class="nota">Orden de instalación: <b>instalar → requisitos en orden → instalar las voces (instalar_voces.py) → abrir el panel → activar el skill en la conversación → instalar plugins</b>. El panel arranca sin plugins.</div>
 </section>
 
 <section id="reglas">
@@ -305,7 +305,7 @@ const PASOS=[
  {t:'Claude construye',s:'Juego, guion y borrador',q:'c',quien:'Claude',que:'Claude recibe el pedido, lee las reglas del plugin (INSTRUCCIONES.md) y crea la carpeta del video: la página del juego, la configuración, el guion con tiempos y las escenas. Informa cada etapa con pedido.py.',arch:['series/<id>/game.js','guion/1.json','config.json','proyecto.json'],reglas:['Si es formato largo, lleva comentarista y estudio (regla del plugin).','Las dudas salen en el panel, no solo en el chat.']},
  {t:'Borrador mudo',s:'Se graba la página del juego',q:'p',quien:'Panel',que:'El grabador abre la página, simula la partida y la graba a 20 fps con varios trabajadores en paralelo usando la tarjeta de video. El borrador queda registrado y se ve en «Mis videos» con las frases como subtítulos.',arch:['grabador/grab_gpu.py','salida_mudo/s<seed>_completo.mp4'],reglas:['El tiempo del video lo marca el juego (tiempos = «juego») o el guion.','Si el grabador falla con 3 trabajadores, reintenta con menos.']},
  {t:'Revisión',s:'Tú compruebas y corriges',q:'u',quien:'Tú',que:'Ves el borrador, lees las frases y pides cambios («Mejora para todo el video» o por frase). Cada cambio se avisa en la campana y se anota para el próximo borrador.',arch:['cambios_pendientes.json','guion/1.json'],reglas:['No se cambia el guion mientras corre un trabajo de voz.']},
- {t:'Voz',s:'«Generar voz» (Voice Studio)',q:'u',quien:'Tú inicias · Panel ejecuta',que:'La voz se genera por partes con Voice Studio: cada frase se guarda al terminar y cae en su segundo. Si se corta, el botón «Seguir donde se quedó» retoma desde ahí. Con el borrador y la voz el panel arma un «borrador con voz».',arch:['motor/voz_partes.py','audiolibro/partes/','voz/voz_completa.wav','salida_mudo/borrador_voz.mp4'],reglas:['Una sola voz y un solo audio por video.','El panel muestra cuántas partes van (por ejemplo 63 de 79).']},
+ {t:'Voz',s:'«Generar voz» (Piper/Kokoro)',q:'u',quien:'Tú inicias · Panel ejecuta',que:'La voz se genera por partes con Piper o Kokoro: cada frase se guarda al terminar y cae en su segundo. Si se corta, el botón «Seguir donde se quedó» retoma desde ahí. Con el borrador y la voz el panel arma un «borrador con voz».',arch:['motor/voz_partes.py','audiolibro/partes/','voz/voz_completa.wav','salida_mudo/borrador_voz.mp4'],reglas:['Una sola voz y un solo audio por video.','El panel muestra cuántas partes van (por ejemplo 63 de 79).']},
  {t:'Borrador con voz',s:'Revisas la voz sobre el video',q:'u',quien:'Tú',que:'Compruebas que cada frase cae en su jugada. El borrador mudo no se modifica: el «borrador con voz» es otro archivo. Si todo está bien, apruebas.',arch:['salida_mudo/borrador_voz.mp4'],reglas:['La unión solo se habilita cuando todas las frases tienen voz.']},
  {t:'Unir',s:'«Unir con la voz»',q:'u',quien:'Tú inicias · Panel ejecuta',que:'Se graba el video final a 30 fps, se instala la música de fondo, se bajan los efectos de Freesound (con la clave del plugin) y se mezcla todo por escenas. Resultado: el video final con voz, música y efectos.',arch:['motor/video.py','motor/sfx_freesound.py','motor/mezcla.py','salida/<id>_completo.mp4'],reglas:['Sin clave de Freesound la unión sigue, sin efectos.','El video final puede quedar en escenas separadas.']},
  {t:'Publicar',s:'Título, descripción y miniatura',q:'p',quien:'Panel',que:'La pestaña Publicar genera títulos, descripción, hashtags y etiquetas a partir de lo que de verdad pasa en el video, y prepara las capturas para la miniatura.',arch:['titulos/','miniaturas/','plugin → titulos/'],reglas:['El título empieza con el gancho y el nombre del juego va en los primeros caracteres.','Solo se afirma algo de un país si es verdad en el video.']}
@@ -348,7 +348,7 @@ const CAMPOS=[
  ['pagina','lista','Archivos donde la página expone lo que pide el grabador: <code>__ready</code>, <code>__frame</code>, <code>__adv</code>, <code>__sim</code>, <code>__cues</code>, <code>__log</code>.',1],
  ['voz','objeto','<code>{"modo": "json_manda" | "libre"}</code>. La voz la hace el panel; el plugin no trae scripts de voz.',1],
  ['titulos','objeto','Tipos de título, descripción y etiquetas que aporta el plugin.',1],
- ['requisitos','objeto','Paquetes de Python, servicios (por ejemplo voice-studio) y archivos que necesita.',1],
+ ['requisitos','objeto','Paquetes de Python, servicios y archivos que necesita.',1],
  ['ajustes','lista','Subpanel de configuración: <code>id</code>, <code>tipo</code>, <code>etiqueta</code>, <code>ayuda</code>; opcional <code>grupo</code>, <code>defecto</code>, <code>min</code>, <code>max</code>, <code>opciones</code>.',1],
  ['config_video','lista','Lo que el plugin pide EN IDEAS para cada video (países, ganador, comentario…).',0],
  ['agentes','objeto','<code>{"modulo": "agentes/agentes_plugin.py"}</code>: los dos agentes (formato y diseño).',0],
@@ -365,7 +365,7 @@ const CAMPOS=[
 $('#ejemplo').textContent=JSON.stringify({esquema:1,api:2,id:'mi-formato',nombre:'Mi formato de video',version:'1.0.0',descripcion:'Videos de ejemplo con un juego de preguntas.',instrucciones:'INSTRUCCIONES.md',formatos:['short'],
  pipeline:{borrador:'pipeline_mio.py {carpeta} borrador',voz:'pipeline_mio.py {carpeta} voz',unir:'pipeline_mio.py {carpeta} conforme',script:'pipeline/pipeline_mio.py'},
  tiempos:'juego',pagina:['plantilla/index.html','plantilla/motor/juego.js'],voz:{modo:'json_manda'},titulos:{dir:'titulos',tipos:{juego:'titulos_mio'}},
- requisitos:{python:['playwright','imageio_ffmpeg','numpy'],servicios:['voice-studio'],archivos:['pipeline/pipeline_mio.py']},
+ requisitos:{python:['playwright','imageio_ffmpeg','numpy'],servicios:[],archivos:['pipeline/pipeline_mio.py']},
  ajustes:[{id:'calidad',grupo:'Grabación',tipo:'opcion',etiqueta:'Calidad del borrador',ayuda:'Rápido (20 fps) o completo (30 fps).',defecto:'rápido (20 fps)',opciones:['rápido (20 fps)','completo (30 fps)']}]},null,2);
 $('#apijs').textContent=`// Tu página (index.html + juego.js) debe exponer:
 window.__ready = false;        // pasa a true cuando todo cargó

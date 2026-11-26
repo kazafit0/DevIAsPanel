@@ -13,7 +13,7 @@ Sus ideas, sus reglas de guion, su diseño y sus datos (`recursos/`). Los motore
 ## Disponibles
 | Archivo | Qué es |
 |---|---|
-| **DevIAs Religion Pluggin v1.1.zip** | Plugin de reels bíblicos 9:16 «¿Sabías que…?» (datos exactos con cita, siluetas con borde dorado, contadores, barra de suma, subtítulo con caja azul). La voz la pone Voice Studio desde el panel. |
+| **DevIAs Religion Pluggin v1.1.zip** | Plugin de reels bíblicos 9:16 «¿Sabías que…?» (datos exactos con cita, siluetas con borde dorado, contadores, barra de suma, subtítulo con caja azul). La voz la pone el panel (Piper/Kokoro). |
 | **DevIAs Esqueleto Pluggin.zip** | **No es un plugin y no se instala.** Es la base para construir plugins nuevos, con su guía para crearlos y mejorarlos (`GUIA_CREAR_Y_MEJORAR_PLUGIN.md`), un generador y un verificador. |
 
 Para instalar el de Religión: **Plugins → Instalar un plugin** y sube el `.zip`. Para el esqueleto: descomprímelo dentro de la carpeta del panel y sigue su `LEEME.md`.
@@ -57,7 +57,7 @@ python esqueleto-plugin/verificar_plugin.py mi-plugin --subir patch --nota "qué
 | `GUIA_CREAR_Y_MEJORAR_PLUGIN.md` | Anatomía, `plugin.json` campo por campo, contratos, método, checklist y errores típicos |
 
 **Reglas que conviene saber desde el principio**
-- El plugin aporta la **escena, el guion, las ideas y los títulos**; la **voz (Voice Studio), la mezcla y el render son del panel**. Un plugin con `voz_*.py`, `mix*.py`, `grab*.py` o `unir.py` se rechaza.
+- El plugin aporta la **escena, el guion, las ideas y los títulos**; la **voz (Piper/Kokoro), la mezcla y el render son del panel**. Un plugin con `voz_*.py`, `mix*.py`, `grab*.py` o `unir.py` se rechaza.
 - La voz solo se genera cuando el usuario dice **«Estoy conforme»**.
 - **Windows:** no dejes tu terminal con la carpeta de un plugin como carpeta actual (impide que el panel lo mueva y lo deja vacío). Usa rutas absolutas.
 - Nunca pongas claves, tokens ni rutas de tu equipo dentro de un plugin: se comparte como `.zip`.

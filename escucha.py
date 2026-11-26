@@ -4,7 +4,8 @@ import os
 - Respeta el TEMPORIZADOR del panel (vivo_hasta.json): cuando se acaba el tiempo, avisa y se apaga; el usuario puede darle mas tiempo desde el panel.
 - Cuando aparece un pedido nuevo en estado pendiente, imprime una linea (eso despierta a Claude)."""
 import json, pathlib, time, sys
-SOLO = '--latido' in sys.argv   # modo LATIDO: solo escribe claude_vivo.json mientras dure el temporizador del panel (proceso aparte, no depende del Monitor de Claude, que caduca a los 30 min)
+SOLO = '--latido' in sys.argv
+SOY = (sys.argv[sys.argv.index('--agente') + 1] if '--agente' in sys.argv and len(sys.argv) > sys.argv.index('--agente') + 1 else 'claude').lower()   # quién corre este proceso (claude por defecto, codex con --agente codex)   # modo LATIDO: solo escribe claude_vivo.json mientras dure el temporizador del panel (proceso aparte, no depende del Monitor de Claude, que caduca a los 30 min)
 D = pathlib.Path(__file__).parent; vistos = set(); F = D / "vivo_hasta.json"
 def hasta():
     try: return float(json.loads(F.read_text(encoding="utf-8"))["hasta"])
@@ -20,6 +21,9 @@ try:   # lo que ya existe al arrancar no se vuelve a anunciar
 except Exception: pass
 while True:
     h = hasta(); ahora = time.time()
+    try: _ag = str(json.loads((D / "devpanel.json").read_text(encoding="utf-8")).get("agente") or "claude").lower()
+    except Exception: _ag = "claude"
+    if _ag != SOY: time.sleep(3); continue   # el usuario dirigió los pedidos al OTRO agente: este no da señal de vida (el panel no lo muestra conectado) ni recibe pedidos
     if ahora >= h:   # temporizador a cero: NO se cierra (si el usuario suma tiempo, sigue y avisa de los pedidos pendientes)
         if not avisado_fin and not SOLO: avisado_fin = True; print("TIEMPO AGOTADO: el temporizador del panel llego a cero; Claude figura desconectado. Sigo escuchando: en cuanto el usuario sume tiempo en el panel, atiendo los pedidos pendientes.", flush=True)
         time.sleep(3); continue

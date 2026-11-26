@@ -7,7 +7,7 @@ Uso:  python instalar.py [--puerto 8820] [--instalar-paquetes] [--acceso-directo
 Las rutas se calculan desde la carpeta donde está este archivo: se puede copiar el DevPanel a cualquier lugar y volver a instalar."""
 import os, sys, json, time, socket, shutil, argparse, pathlib, subprocess, importlib.util
 AQUI = pathlib.Path(__file__).resolve().parent
-PAQUETES = [("playwright", "playwright"), ("PIL", "pillow"), ("numpy", "numpy"), ("imageio_ffmpeg", "imageio-ffmpeg")]
+PAQUETES = [("playwright", "playwright"), ("PIL", "pillow"), ("numpy", "numpy"), ("imageio_ffmpeg", "imageio-ffmpeg"), ("piper", "piper-tts"), ("kokoro_onnx", "kokoro-onnx"), ("soundfile", "soundfile"), ("edge_tts", "edge-tts"), ("gradio_client", "gradio_client")]
 DATOS = ["catalogo.json", "pedidos.json", "proyectos.json", "referencias.json", "actividad.json", "banco.json", "banco_original.json"]
 def puerto_libre(p):
     for q in range(p, p + 30):
@@ -15,31 +15,18 @@ def puerto_libre(p):
             s.settimeout(.3)
             if s.connect_ex(("127.0.0.1", q)) != 0: return q
     return p
-def _vs_auto():   # dónde está Voice Studio si no se dijo en devpanel.json -> "voice_studio_dir" (sin rutas de nadie): variable VOICESTUDIO_DIR o sitios habituales
-    import os
-    for b in (os.environ.get("VOICESTUDIO_DIR"), os.path.join(os.environ.get("LOCALAPPDATA", ""), "Programs", "VoiceStudio"), os.path.join(os.environ.get("ProgramFiles", ""), "VoiceStudio"), os.path.join(os.path.expanduser("~"), "VoiceStudio")):
-        if b:
-            for sub in ("project", ""):
-                p = pathlib.Path(b) / sub if sub else pathlib.Path(b)
-                if (p / ".venv").exists() or (p / "data").exists(): return p
-    return pathlib.Path(os.path.expanduser("~")) / "VoiceStudio" / "project"
-def voice_studio_estado():   # ¿está Voice Studio instalado? (lo instala el usuario A MANO: el instalador solo lo detecta)
-    import urllib.request
-    cfg = {}
-    try: cfg = json.loads((AQUI / "devpanel.json").read_text(encoding="utf-8"))
-    except Exception: pass
-    ruta = pathlib.Path(cfg.get("voice_studio_dir") or _vs_auto())
-    enc = False
-    try: urllib.request.urlopen("http://127.0.0.1:3900/openapi.json", timeout=1.5); enc = True
-    except Exception: pass
-    return {"instalado": bool(enc or ruta.exists()), "ruta": str(ruta), "encendido": enc}
+def voces_estado():   # voces locales (Piper/Kokoro): se instalan con instalar_voces.py
+    carpeta = pathlib.Path(os.environ.get("VOCES_TTS_DIR") or (pathlib.Path.home() / "voces_tts"))
+    piper = sorted(x.name[:-5] for x in carpeta.glob("*.onnx")) if carpeta.is_dir() else []
+    kokoro = importlib.util.find_spec("kokoro_onnx") is not None and importlib.util.find_spec("soundfile") is not None and bool(shutil.which("npx") or shutil.which("npx.cmd"))
+    return {"instaladas": bool(piper or kokoro), "piper": piper, "kokoro": kokoro, "carpeta": str(carpeta)}
 def estado():   # lo usa el skill de instalación: qué falta, en JSON
     falta = comprobar_paquetes(); chromium = False
     try:
         from playwright.sync_api import sync_playwright
         with sync_playwright() as pw: chromium = pathlib.Path(pw.chromium.executable_path).exists()
     except Exception: pass
-    return {"python": sys.version.split()[0], "python_ok": sys.version_info >= (3, 10), "paquetes_faltan": [p for _, p in falta], "chromium": chromium, "voice_studio": voice_studio_estado(), "carpeta": str(AQUI)}
+    return {"python": sys.version.split()[0], "python_ok": sys.version_info >= (3, 10), "paquetes_faltan": [p for _, p in falta], "chromium": chromium, "voces": voces_estado(), "voice_studio": {"configurado": bool(json.loads((AQUI / "devpanel.json").read_text(encoding="utf-8")).get("voice_studio_dir")) if (AQUI / "devpanel.json").exists() else False}, "carpeta": str(AQUI)}
 def comprobar_paquetes():
     return [(m, pip) for m, pip in PAQUETES if importlib.util.find_spec(m) is None]
 def escribe(path, txt):
@@ -103,7 +90,7 @@ def main(argv=None):
     if a.acceso_directo: print("  · Acceso directo «DevIAs Panel» en el escritorio:", "creado" if ok_lnk else "no se pudo crear")
     if falta: print("\nFALTAN paquetes de Python: %s\n  Instálalos con:  python instalar.py --instalar-paquetes" % ", ".join(p for _, p in falta))
     print("\n== Comprobando requisitos (voz, tarjeta de video, navegador…) =="); subprocess.run([sys.executable, str(AQUI / "requisitos.py")])
-    vs = voice_studio_estado(); print("\nVOICE_STUDIO: " + ("instalado" if vs["instalado"] else "FALTA: hay que instalarlo A MANO (el instalador no puede hacerlo por ti)"))
+    vz = voces_estado(); print("\nVOCES: " + ("listas (Piper: %s; Kokoro: %s)" % (", ".join(vz["piper"]) or "ninguna", "sí" if vz["kokoro"] else "no") if vz["instaladas"] else "FALTAN: ejecuta  python instalar_voces.py  (descarga Piper y Kokoro)"))
     print("\nLos plugins se ponen en la carpeta plugins/ (cada uno con su plugin.json); aparecerán en la pestaña Plugins.")
     return {"puerto": puerto, "faltan": [p for _, p in falta], "bat": str(AQUI / "iniciar_devpanel.bat")}
 if __name__ == "__main__": main()

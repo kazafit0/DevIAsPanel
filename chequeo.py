@@ -30,7 +30,6 @@ def panel():    # 2) el servidor responde y sus rutas clave no dan 500
         e = json.loads(urllib.request.urlopen("http://localhost:8810/api/estado", timeout=10).read())
         if not e.get("claude"): err("Claude figura DESCONECTADO en el panel (latido o temporizador vencido)")
         if e.get("vivo_resta", 0) < 1800: av("el temporizador de Claude queda con menos de 30 min")
-        if not e.get("voice_studio"): av("Voice Studio cerrado: no se podrá generar voz")
     except Exception: pass
     for p in jl(P / "proyectos.json", []):
         for k in ("video_final", "video_mudo"):

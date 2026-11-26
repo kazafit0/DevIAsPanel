@@ -9,15 +9,6 @@ AQUI = pathlib.Path(__file__).resolve().parent
 CFG = {}
 try: CFG = json.loads((AQUI / "devpanel.json").read_text(encoding="utf-8"))
 except Exception: pass
-def _vs_auto():   # dónde está Voice Studio si no se dijo en devpanel.json -> "voice_studio_dir" (sin rutas de nadie): variable VOICESTUDIO_DIR o sitios habituales
-    import os
-    for b in (os.environ.get("VOICESTUDIO_DIR"), os.path.join(os.environ.get("LOCALAPPDATA", ""), "Programs", "VoiceStudio"), os.path.join(os.environ.get("ProgramFiles", ""), "VoiceStudio"), os.path.join(os.path.expanduser("~"), "VoiceStudio")):
-        if b:
-            for sub in ("project", ""):
-                p = pathlib.Path(b) / sub if sub else pathlib.Path(b)
-                if (p / ".venv").exists() or (p / "data").exists(): return p
-    return pathlib.Path(os.path.expanduser("~")) / "VoiceStudio" / "project"
-VS_DEF = str(_vs_auto())
 R = []   # {nivel, nombre, ok, detalle, arreglo}
 def item(nivel, nombre, ok, detalle="", arreglo=""): R.append({"nivel": nivel, "nombre": nombre, "ok": bool(ok), "detalle": detalle, "arreglo": arreglo})
 def tiene(mod): return importlib.util.find_spec(mod) is not None
@@ -40,15 +31,16 @@ try: mb = int(gpu.split(",")[-1].strip().split()[0]) if gpu else 0
 except Exception: pass
 item("NECESARIO PARA VOZ/VIDEO", "Tarjeta de video NVIDIA (para la voz y el grabador rápido)", bool(gpu), gpu or "no se detecta nvidia-smi", "Instala los drivers de NVIDIA. Sin tarjeta NVIDIA la voz no funciona y la grabación va por procesador (mucho más lenta).")
 if gpu and mb < 5000: item("OPCIONAL", "Memoria de la tarjeta de video", False, "%d MB: la voz usa unos 5 GB; puede quedarse corta" % mb, "Cierra otros programas que usen la tarjeta antes de generar la voz.")
-# 5) Voice Studio
-vs = pathlib.Path(CFG.get("voice_studio_dir") or VS_DEF)
-vs_ok = (vs / ".venv" / "Scripts" / "python.exe").exists() and (vs / "backend").exists()
-item("NECESARIO PARA VOZ/VIDEO", "Voice Studio instalado", vs_ok, str(vs) if vs_ok else "no está en: %s" % vs,
-     "Instala Voice Studio y escribe su carpeta («project», la que tiene backend y .venv) en devpanel.json:  \"voice_studio_dir\": \"C:\\\\...\\\\VoiceStudio\\\\project\"")
-up = False
-try: urllib.request.urlopen("http://127.0.0.1:3900/health", timeout=2); up = True
-except Exception: pass
-item("OPCIONAL", "Voice Studio encendido (puerto 3900)", up, "responde" if up else "apagado: el panel lo enciende solo al generar voz si está instalado", "Si no enciende solo, ábrelo a mano y repite.")
+# 5) Voces locales (Piper / Kokoro)
+_vd = pathlib.Path(os.environ.get("VOCES_TTS_DIR") or (pathlib.Path.home() / "voces_tts"))
+_pv = sorted(x.name[:-5] for x in _vd.glob("*.onnx")) if _vd.is_dir() else []
+item("NECESARIO PARA VOZ/VIDEO", "Voz Piper instalada", bool(_pv and tiene("piper")), (", ".join(_pv) + " en " + str(_vd)) if _pv else "no hay voces en: %s" % _vd, "Ejecuta:  python instalar_voces.py  (instala piper-tts y descarga la voz es_MX-claude-high)")
+_nx = bool(shutil.which("npx") or shutil.which("npx.cmd"))
+item("OPCIONAL", "Voces Kokoro (em_alex, em_santa)", bool(_nx and tiene("kokoro_onnx") and tiene("soundfile")), "listas" if (_nx and tiene("kokoro_onnx") and tiene("soundfile")) else "faltan Node.js 22+ y/o los paquetes kokoro-onnx y soundfile", "Instala Node.js 22+ (nodejs.org) y ejecuta:  python -m pip install kokoro-onnx soundfile  y luego  python instalar_voces.py --solo-kokoro")
+# 5b) Voice Studio (opcional)
+_vsd = CFG.get("voice_studio_dir")
+_vs_ok = bool(_vsd and (pathlib.Path(_vsd) / "backend").is_dir() and (pathlib.Path(_vsd) / ".venv").is_dir())
+item("OPCIONAL", "Voice Studio (solo si quieres usar tus perfiles)", _vs_ok, _vsd if _vs_ok else "no configurado", "Actívalo en Ajustes → Voz → Voice Studio y pulsa «Buscar en el PC». No es necesario para generar voz.")
 # 6) puerto del panel
 puerto = int(CFG.get("puerto") or 8820)
 s = socket.socket(); s.settimeout(1)

@@ -30,6 +30,9 @@ devpanel.json
 iniciar_devpanel.bat
 detener_devpanel.bat
 
+# tus voces (modelos, audios de referencia, clonadas): son tuyas, NO se sube nada de esta carpeta
+voces_tts/
+
 # solo el PANEL: los plugins se publican aparte y los datos de trabajo son tuyos
 plugins/*
 !plugins/LEEME.txt

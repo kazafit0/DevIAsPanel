@@ -6,6 +6,7 @@ Uso: python pedido.py IDEA_ID PORCENTAJE "mensaje" [--hecho] [--proyecto ID_PROY
   --error     avisa que algo falló (campana roja en el panel)
   --pregunta "texto" [--opciones "Sí|No"]   Claude necesita una decisión del usuario: sale en el panel (chip naranja, campana y banner en el video) y espera su respuesta
   --agente formato|diseno "texto" [--estado pensando|listo]   uno de los dos agentes del cerebro (formato = mejor formato para la idea; diseno = mejor diseño del juego) deja lo que trajo: sale en el cerebro del panel
+  --yo NOMBRE  quién atiende el pedido (claude, codex…): marca el pedido como «ocupado» para que otro agente no lo pise; se renueva en cada aviso y caduca a los 20 min (ver pendientes.py)
   --hecho     marca el pedido como hecho (y, si era una muestra, la idea pasa a «Escena 1 lista»)
   --proyecto  proyecto (de proyectos.json) donde se ve la muestra
 """
@@ -48,6 +49,8 @@ for x in ped:
         elif x.get("pregunta") and not x.get("respuesta"): pass
         if x.get("tipo") == "video": x["etapa"] = 8 if hecho else (etapa or max(x.get("etapa") or 1, min(8, 1 + pct * 8 // 100)))
         x["act"] = time.strftime("%Y-%m-%d %H:%M:%S")
+        if "--yo" in a_ and len(a_) > a_.index("--yo") + 1: x["atiende"] = a_[a_.index("--yo") + 1]; x["atiende_ts"] = time.time()   # quién lo atiende (varios agentes pueden turnarse)
+        if hecho: x.pop("atiende", None); x.pop("atiende_ts", None)
         if "--agente" in a_:   # los dos agentes del cerebro: pedido.py IDEA PCT "msg" --agente formato|diseno "texto" [--estado pensando|listo]
             _i = a_.index("--agente"); _n = a_[_i + 1]; _tx = a_[_i + 2] if len(a_) > _i + 2 else ""; _est = a_[a_.index("--estado") + 1] if "--estado" in a_ else "listo"
             x.setdefault("agentes", {}).setdefault(_n, {}).update({"estado": _est, "msg": _tx, "hora": time.strftime("%H:%M:%S")})

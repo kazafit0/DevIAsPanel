@@ -66,6 +66,28 @@ def _vs_dir():   # la carpeta de Voice Studio se puede cambiar en devpanel.json 
     try: return pathlib.Path(json.loads((ROOT / "devpanel.json").read_text(encoding="utf-8")).get("voice_studio_dir") or _vs_auto())
     except Exception: return _vs_auto()
 VS_DIR = _vs_dir(); VS_PY = VS_DIR / ".venv" / "Scripts" / "python.exe"
+def _agente_activo():   # a quién le llegan los pedidos: «claude» o «codex» (devpanel.json → agente); el otro no recibe nada
+    a = str(jload("devpanel.json", {}).get("agente") or "claude").lower()
+    return a if a in ("claude", "codex") else "claude"
+def _motor_vs():   # Voice Studio solo se enciende solo si es el motor elegido
+    try: return jload("voz_config.json", {}).get("motor") == "voicestudio"
+    except Exception: return False
+def _vs_coherente(vl):
+    """Si Voice Studio está activado, la voz en uso tiene que ser un perfil suyo; la voz del panel que se usaba se recuerda para cuando se desactive."""
+    c_ = jload("voz_config.json", {})
+    if not c_.get("voicestudio_activo"): return c_
+    pv_ = vl.vs_perfiles()
+    if c_.get("motor") != "voicestudio" or (pv_ and c_.get("perfil") not in pv_):
+        if c_.get("motor") != "voicestudio": c_["local_previo"] = {"motor": c_.get("motor", "piper"), "perfil": c_.get("perfil", "es_MX-claude-high")}
+        if pv_: c_.update(motor="voicestudio", perfil=pv_[0])
+        jsave("voz_config.json", c_)
+    return c_
+def _vs_info():
+    cfg = jload("voz_config.json", {}); n = 0
+    try:
+        if VS_PY.exists(): n = len(_voz_local().vs_perfiles())   # perfiles de voz que Voice Studio ya tiene (se leen de su propia base de datos)
+    except Exception: n = 0
+    return {"instalado": VS_PY.exists(), "arriba": voice_up(), "dir": str(VS_DIR), "activo": bool(cfg.get("voicestudio_activo")), "perfiles": n}
 def _ram_libre():
     import ctypes
     class MS(ctypes.Structure): _fields_ = [("l", ctypes.c_ulong), ("load", ctypes.c_ulong), ("tp", ctypes.c_ulonglong), ("ap", ctypes.c_ulonglong), ("tpf", ctypes.c_ulonglong), ("apf", ctypes.c_ulonglong), ("tv", ctypes.c_ulonglong), ("av", ctypes.c_ulonglong), ("ae", ctypes.c_ulonglong)]
@@ -97,8 +119,8 @@ def hardware():   # QUÉ PC es: Windows, procesador, RAM, tarjeta(s) de video y 
         nv = "nvidia" in nombre.lower()
         g.append({"nombre": nombre, "vram_gb": (vt if (nv and vt) else (ram or None)), "nvidia": nv, "driver": x.get("DriverVersion")})
     gpu_ok = any(x["nvidia"] and (x["vram_gb"] or 0) >= 4 for x in g)
-    modo = ("Tarjeta de video NVIDIA: grabación rápida por GPU y voz local (Voice Studio)" if gpu_ok else
-            ("Tarjeta de video sin NVIDIA suficiente: se graba con el procesador (más lento) y la voz usa Hugging Face" if g else "Sin tarjeta de video: se graba solo con procesador y memoria RAM (más lento) y la voz usa Hugging Face"))
+    modo = ("Tarjeta de video NVIDIA: grabación rápida por GPU" if gpu_ok else
+            ("Tarjeta de video sin NVIDIA suficiente: se graba con el procesador (más lento)" if g else "Sin tarjeta de video: se graba solo con procesador y memoria RAM (más lento)"))
     d = {"windows": ("%s %s" % (so.get("Caption") or platform.system(), so.get("OSArchitecture") or "")).strip(), "windows_version": so.get("Version") or platform.version(),
          "equipo": ("%s %s" % (pc.get("Manufacturer") or "", pc.get("Model") or "")).strip(), "procesador": (cpu.get("Name") or platform.processor() or "").strip(),
          "nucleos": cpu.get("NumberOfCores"), "hilos": cpu.get("NumberOfLogicalProcessors"), "ram_total_gb": rt, "ram_libre_gb": rl, "gpus": g, "usa_gpu": gpu_ok, "modo_render": modo,
@@ -122,6 +144,8 @@ def voice_iniciar(espera=120):
     if not VS_PY.exists(): return False
     _env = dict(os.environ); _dd = VS_DIR.parent / "data"   # REGLA: sin OMNIVOICE_DATA_DIR Voice Studio usa %APPDATA%\OmniVoice (carpeta vacia): no ve los perfiles del usuario ni sus activaciones y la API responde 403. Siempre su carpeta «data».
     if _dd.exists(): _env["OMNIVOICE_DATA_DIR"] = str(_dd)
+    _md = VS_DIR.parent / "models"   # REGLA: sin OMNIVOICE_CACHE_DIR Voice Studio busca sus modelos (Whisper, etc.) en la carpeta por defecto del usuario y dice «no hay modelo de voz a texto»; su aplicación le pasa su carpeta «models»
+    if _md.exists() and not _env.get("OMNIVOICE_CACHE_DIR"): _env["OMNIVOICE_CACHE_DIR"] = str(_md)
     subprocess.Popen([str(VS_PY), "-m", "uvicorn", "main:app", "--app-dir", "backend", "--host", "127.0.0.1", "--port", "3900"], cwd=str(VS_DIR), env=_env, creationflags=0x08000000 | 0x00000008, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, stdin=subprocess.DEVNULL)
     t0 = time.time()
     while time.time() - t0 < espera:
@@ -329,12 +353,13 @@ def vista_job(j):
         import math; est = int(95 * (1 - math.exp(-2.0 * d["transcurrido"] / max(5, j.get("esperado", 60)))))   # sube sin congelarse en 95
         d["pct"] = max(j.get("pct", 0), est)
     return d
+NOMBRE_JOB = {"voz": "Generando la voz (frases nuevas o cambiadas)", "voz_todas": "Rehaciendo toda la voz", "grabar": "Grabando el video", "capturas": "Sacando capturas", "escena_mezcla": "Mezclando el audio de la escena", "musica": "Preparando la música", "unir": "Uniendo el video", "unir_prev": "Uniendo la vista previa", "mezclar": "Mezclando el audio"}
 def run_job(job, p, tipo):
     c = carpeta(p); seed = str(p["seed"]); tag = p.get("tag", "")
     def log(x): job["log"].append(x); job["log"] = job["log"][-400:]
     try:
         if tipo in ("voz", "voz_todas"):
-            if not voice_up() and not voice_iniciar(): job["estado"] = "error"; log("Voice Studio esta CERRADO y no pude encenderlo solo (carpeta VoiceStudioRunIA en E:). Abrelo y repite."); return
+            if _motor_vs() and not voice_up() and not voice_iniciar(): job["estado"] = "error"; log("Voice Studio esta CERRADO y no pude encenderlo solo. Enciéndelo con el botón de encendido (Ajustes → Voz → Voice Studio) y repite."); return
             if (c / "tools" / "voz_unica.py").exists() or (c / "guion" / "1.json").exists():   # METODO de los mapas (2026-11-16): AUDIOLIBRO con colchon « , ----[pause Xms] » sin puntos, UNA toma (corto y largo); nunca recortar palabras
                 _vs = ROOT / "motor" / "voz_partes.py"   # LA VOZ ES DEL DEVPANEL (un solo motor para todos los plugins); el plugin solo declara voz.modo
                 if not _vs.is_file(): job["estado"] = "error"; log("Falta motor/voz_partes.py del DevIAs Panel."); return
@@ -363,10 +388,10 @@ def run_job(job, p, tipo):
                 port = free_port(); srv = subprocess.Popen([PY, "-m", "http.server", str(port), "--directory", str(c)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL); time.sleep(1.2); cmd = [PY, "tools/capturas.py", seed, str(port)]
             else: srv = None; cmd = [PY, str(ROOT / "capturas_ffmpeg.py"), str(c), p.get("video_mudo", "")]
         elif tipo == "grabar":   # grabador PARALELO: 6 navegadores a la vez (6-7x mas rapido que uno)
-            srv = None; cmd = [PY, "-u", str(ROOT / "grabador" / "grabar_rapido.py"), str(c), seed, "--tag", "_panel"]   # /render-rapido: GPU (WebCodecs), 1 navegador; cae al paralelo con 3 si falla (6 navegadores daban Timeout con Voice Studio abierto)
+            srv = None; cmd = [PY, "-u", str(ROOT / "grabador" / "grabar_rapido.py"), str(c), seed, "--tag", "_panel"]   # /render-rapido: GPU (WebCodecs), 1 navegador; cae al paralelo con 3 si falla (6 navegadores daban Timeout)
         else: job["estado"] = "error"; log("tipo desconocido"); return
         job["esperado"] = esperado(p, tipo, c)
-        log("$ " + " ".join(cmd)); pr = subprocess.Popen(cmd, cwd=str(c), env=env_plugin(p), stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, encoding="utf-8", errors="replace")
+        job["cmd"] = " ".join(cmd); log("== %s ==" % NOMBRE_JOB.get(tipo, tipo)); pr = subprocess.Popen(cmd, cwd=str(c), env=env_plugin(p), stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, encoding="utf-8", errors="replace")
         for line in pr.stdout:
             line = line.rstrip()
             job["ultima"] = time.time()
@@ -459,7 +484,7 @@ def run_conforme(job, p, etapa="conforme", extra=()):   # pipeline «conforme» 
         if m: job["pct"] = int(m.group(1))
     rc = pr.wait(); job["estado"] = "listo" if rc == 0 else "error"; job["pct"] = 100 if rc == 0 else job.get("pct", 0); job["fin"] = time.time()
 def iniciar_conforme(p, etapa="conforme", extra=()):
-    if etapa in ("conforme", "voz", "parte") and not voice_up(): voice_iniciar()   # la voz necesita la API: se enciende sola (solo la API, sin la ventana)
+    if etapa in ("conforme", "voz", "parte") and _motor_vs() and not voice_up(): voice_iniciar()   # la voz necesita la API: se enciende sola (solo la API, sin la ventana)
     with LOCK:
         if any(j["estado"] == "corriendo" and not j.get("externo") for j in JOBS.values()): return None   # los avisos de progreso de Claude (externo) NO bloquean los botones del panel
         JID[0] += 1; job = {"id": JID[0], "tipo": "conforme", "n": None, "proyecto": p["id"], "estado": "corriendo", "inicio": time.time(), "ultima": time.time(), "pct": 0, "fin": None, "log": ["== %s ==" % ("Estoy conforme: voz por partes + unión" if etapa == "conforme" else ("Voz (sin unir el video)" if etapa == "voz" else "Rehacer la voz de una parte + unión"))]}; JOBS[job["id"]] = job
@@ -844,7 +869,7 @@ def devpanel_zip():
         for f in sorted((ROOT / "static").iterdir()):
             if f.is_file() and not re.search(r"\.(bak|pre_diseno)", f.name): z.write(f, "devpanel/static/" + f.name)
         z.writestr("devpanel/plugins/LEEME.txt", "Aquí van los plugins (cada uno en su carpeta con un plugin.json). El panel los detecta solo y los muestra en la pestaña Plugins.\\nDescarga un plugin desde la pestaña Plugins de otro DevIAs Panel y descomprímelo aquí.")
-        z.writestr("devpanel/LEEME_INSTALAR.md", "# DevIAs Panel\\n1. Instala Python 3.10 o superior (python.org).\\n2. Haz doble clic en **instalar.bat**. Crea las carpetas, comprueba los paquetes y genera **iniciar_devpanel.bat** (y detener_devpanel.bat).\\n   Para instalar también los paquetes que falten:  `instalar.bat --instalar-paquetes`   · acceso directo en el escritorio: `instalar.bat --acceso-directo`.\\n3. Enciende el panel con **iniciar_devpanel.bat**: se abre http://localhost:8820/static/admin.html\\n4. Pon un plugin en la carpeta `plugins/` y actívalo desde la pestaña Plugins.\\n\\nSi mueves la carpeta a otro lugar, vuelve a ejecutar instalar.bat para regenerar los .bat con las rutas nuevas.\\nPara las voces hace falta Voice Studio (API en 127.0.0.1:3900); el panel lo enciende solo si está instalado.\\n")
+        z.writestr("devpanel/LEEME_INSTALAR.md", "# DevIAs Panel\\n1. Instala Python 3.10 o superior (python.org).\\n2. Haz doble clic en **instalar.bat**. Crea las carpetas, comprueba los paquetes y genera **iniciar_devpanel.bat** (y detener_devpanel.bat).\\n   Para instalar también los paquetes que falten:  `instalar.bat --instalar-paquetes`   · acceso directo en el escritorio: `instalar.bat --acceso-directo`.\\n3. Enciende el panel con **iniciar_devpanel.bat**: se abre http://localhost:8820/static/admin.html\\n4. Pon un plugin en la carpeta `plugins/` y actívalo desde la pestaña Plugins.\\n\\nSi mueves la carpeta a otro lugar, vuelve a ejecutar instalar.bat para regenerar los .bat con las rutas nuevas.\\nPara las voces ejecuta `python instalar_voces.py` (Piper y Kokoro, locales).\\n")
     return bio.getvalue()
 
 
@@ -960,6 +985,7 @@ class H(http.server.BaseHTTPRequestHandler):
         if pa == "/api/instalacion": return self._json(info_instalacion())
         if pa == "/api/hardware": return self._json(hardware())
         if pa == "/api/temp": return self._json({"temp_dir": _cfg_json().get("temp_dir") or "", "efectivo": TMPD, "defecto": str(ROOT / "_tmp")})
+        if pa == "/api/agente": return self._json({"activo": _agente_activo(), "opciones": ["claude", "codex"]})
         if pa == "/api/senal": return self._json({"senal_min": _senal_min(), "primer_uso": bool(jload("devpanel.json", {}).get("primer_uso"))})
         if pa == "/api/devpanel_zip":
             data = devpanel_zip(); self.send_response(200); self.send_header("Content-Type", "application/zip"); self.send_header("Content-Length", str(len(data))); self.send_header("Content-Disposition", 'attachment; filename="devpanel-instalador-%s.zip"' % time.strftime("%Y%m%d")); self.send_header("Cache-Control", "no-store"); self.end_headers(); self.wfile.write(data); return
@@ -969,7 +995,10 @@ class H(http.server.BaseHTTPRequestHandler):
             d_ = PLUGINS_DIR / q.get("id", [""])[0]; f_ = imagen_plugin(d_, validar_plugin(d_)[0] or {}) if d_.is_dir() else None
             if not f_: return self._json({"error": "sin imagen"}, 404)
             b_ = f_.read_bytes(); self.send_response(200); self.send_header("Content-Type", mimetypes.guess_type(str(f_))[0] or "image/png"); self.send_header("Content-Length", str(len(b_))); self.send_header("Cache-Control", "no-cache"); self.end_headers(); self.wfile.write(b_); return
-        if pa == "/api/voz_config": c_ = dict(jload("voz_config.json", {})); c_["hf_token_set"] = bool(c_.pop("hf_token", "")); c_.setdefault("motor", "voicestudio"); return self._json(c_)   # el token nunca sale al navegador
+        if pa == "/api/voces":   # Ajustes → Voz: las voces instaladas en este PC (Piper y Kokoro) y la que está en uso
+            vl = _voz_local(); c_ = dict(_vs_coherente(vl)); c_.pop("hf_token", None); c_.setdefault("motor", "piper"); c_.setdefault("perfil", "es_MX-claude-high")
+            return self._json({"voces": vl.catalogo(), "carpetas": [str(x) for x in vl.carpetas()], "config": c_, "vs": _vs_info()})
+        if pa == "/api/voz_config": c_ = dict(jload("voz_config.json", {})); c_.pop("hf_token", None); c_.setdefault("motor", "piper"); return self._json(c_)
         if pa == "/api/paises": cola.cargar_paises(); return self._json(sorted(({"cod": k, "nom": v} for k, v in cola.PAIS.items()), key=lambda x: x["nom"]))
         if pa == "/api/plugin_verificar":   # informe de un plugin YA instalado
             d_ = PLUGINS_DIR / q.get("id", [""])[0]
@@ -994,7 +1023,7 @@ class H(http.server.BaseHTTPRequestHandler):
             except Exception: vh = 0
             try: mon = time.time() - json.loads((ROOT / "claude_monitor.json").read_text(encoding="utf-8"))["ts"] < 15
             except Exception: mon = False
-            return self._json({"senal_min": _senal_min(), "primer_uso": bool(jload("devpanel.json", {}).get("primer_uso")), "voice_studio": voice_up(), "claude": cv, "monitor": mon, "parados": list(PARADOS.values()), "hora": time.strftime("%H:%M:%S"), "vivo_resta": max(0, int(vh - time.time())), "plugin_activo": (lambda dm: {"id": dm[0].name, "nombre": dm[1].get("nombre")} if dm[0] else None)(plugin_activo())})
+            return self._json({"senal_min": _senal_min(), "primer_uso": bool(jload("devpanel.json", {}).get("primer_uso")), "voice_studio": voice_up(), "agente": _agente_activo(), "claude": cv, "monitor": mon, "parados": list(PARADOS.values()), "hora": time.strftime("%H:%M:%S"), "vivo_resta": max(0, int(vh - time.time())), "plugin_activo": (lambda dm: {"id": dm[0].name, "nombre": dm[1].get("nombre")} if dm[0] else None)(plugin_activo())})
         if pa == "/api/catalogo":
             act_ = estado_plugins().get("activo")   # las IDEAS son del plugin que las trajo: con otro plugin activo (o ninguno) no se ven; vuelven al reactivar el suyo
             cat = [i for i in jload("catalogo.json", []) if i.get("estado") != "idea" or (act_ and i.get("plugin") == act_)]
@@ -1087,6 +1116,11 @@ class H(http.server.BaseHTTPRequestHandler):
                 cfg["temp_dir"] = d_
             else: cfg.pop("temp_dir", None)
             (ROOT / "devpanel.json").write_text(json.dumps(cfg, ensure_ascii=False, indent=1), encoding="utf-8"); return self._json({"ok": True, "temp_dir": cfg.get("temp_dir") or "", "reiniciar": True})
+        if pa == "/api/agente":   # {"activo": "claude"|"codex"}: a quién le llegan los pedidos
+            a_ = str(body.get("activo") or "").lower()
+            if a_ not in ("claude", "codex"): return self._json({"error": "el agente debe ser claude o codex"}, 400)
+            cfg_ = jload("devpanel.json", {}); cfg_["agente"] = a_; jsave("devpanel.json", cfg_)
+            logact(None, "Los pedidos ahora llegan a %s." % ("Codex (ChatGPT)" if a_ == "codex" else "Claude"), "info"); return self._json({"ok": True, "activo": a_})
         if pa == "/api/senal":   # {"senal_min": N, "primer_uso": false}: intervalo de la señal de conexión (se guarda en devpanel.json y aparece en Ajustes)
             cfg = jload("devpanel.json", {})
             if body.get("senal_min") is not None: cfg["senal_min"] = max(5, min(240, int(body["senal_min"])))
@@ -1340,19 +1374,64 @@ class H(http.server.BaseHTTPRequestHandler):
             cierra_trabajos_de(pid, "esp-" + str(idea_), idea_)
             logact(None, "Video borrado: «%s»%s." % ((p_ or {}).get("titulo") or idea_, " (carpeta en _papelera/videos)" if dst else ""), "info")
             return self._json({"ok": True, "papelera": str(dst) if dst else None})
+        if pa == "/api/voz_borrar":   # borra (a la papelera, recuperable) una voz que el usuario subió
+            vl = _voz_local(); mo_ = str(body.get("motor") or ""); id_ = str(body.get("id") or "")
+            try: dst_ = vl.borrar(mo_, id_)
+            except Exception as ex_: return self._json({"error": str(ex_)[:300]}, 400)
+            c_ = jload("voz_config.json", {})
+            if c_.get("motor") == mo_ and c_.get("perfil") == id_: c_.update(motor="piper", perfil="es_MX-claude-high"); jsave("voz_config.json", c_)
+            logact(None, "Voz borrada (a la papelera): %s" % id_, "info"); return self._json({"ok": True, "papelera": dst_})
+        if pa == "/api/vs_config":   # Voice Studio opcional: activar/desactivar el motor y guardar su carpeta
+            vl = _voz_local(); global VS_DIR, VS_PY
+            if body.get("buscar") or body.get("dir"):
+                nd_ = vl.vs_buscar() if body.get("buscar") else vl._normaliza_vs(body.get("dir"))
+                if not nd_: return self._json({"error": "No encontré Voice Studio ahí: la carpeta debe tener «backend» y «.venv» (la carpeta «project»)."}, 400)
+                cfg_ = jload("devpanel.json", {}); cfg_["voice_studio_dir"] = str(nd_); jsave("devpanel.json", cfg_); VS_DIR = nd_; VS_PY = VS_DIR / ".venv" / "Scripts" / "python.exe"
+            if body.get("activo") is not None:
+                c_ = jload("voz_config.json", {}); act_ = bool(body["activo"])
+                if act_:   # al activarlo, una voz suya queda en uso y las voces del panel dejan de usarse
+                    pv_ = vl.vs_perfiles()
+                    if not pv_: return self._json({"error": "No encuentro perfiles de voz en Voice Studio: revisa su carpeta (Buscar en el PC)."}, 400)
+                    c_["voicestudio_activo"] = True
+                    if c_.get("motor") != "voicestudio": c_["local_previo"] = {"motor": c_.get("motor", "piper"), "perfil": c_.get("perfil", "es_MX-claude-high")}
+                    if c_.get("motor") != "voicestudio" or c_.get("perfil") not in pv_: c_.update(motor="voicestudio", perfil=(c_.get("vs_previo") if c_.get("vs_previo") in pv_ else pv_[0]))
+                else:
+                    c_["voicestudio_activo"] = False
+                    if c_.get("motor") == "voicestudio":
+                        c_["vs_previo"] = c_.get("perfil")   # el perfil de Voice Studio se recuerda para cuando se vuelva a usar
+                        c_.update(c_.pop("local_previo", None) or {"motor": "piper", "perfil": "es_MX-claude-high"})
+                jsave("voz_config.json", c_); logact(None, "Voice Studio %s como motor de voz." % ("activado" if act_ else "desactivado"), "info")
+            return self._json({"ok": True, "vs": _vs_info()})
+        if pa == "/api/voz_abrir_carpeta":   # abre la carpeta de tus voces y la trae al frente (desde un proceso en segundo plano, Windows la abría detrás del navegador)
+            c_ = str(_voz_local().carpeta_propia())
+            try:
+                os.startfile(c_)
+                threading.Timer(1.0, lambda: subprocess.Popen(["powershell", "-NoProfile", "-WindowStyle", "Hidden", "-Command", "Add-Type -AssemblyName Microsoft.VisualBasic; [Microsoft.VisualBasic.Interaction]::AppActivate('%s')" % pathlib.Path(c_).name], creationflags=0x08000000, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)).start()
+            except Exception as ex_: return self._json({"error": "No pude abrir la carpeta: " + str(ex_)[:160]}, 500)
+            return self._json({"ok": True, "carpeta": c_})
+        if pa == "/api/voz_escuchar":   # «Escuchar»: genera una frase de prueba con la voz pedida y la devuelve como audio (base64)
+            import base64; vl = _voz_local()
+            mo_ = str(body.get("motor") or "").lower(); vz_ = str(body.get("voz") or "")
+            if mo_ not in vl.MOTORES: return self._json({"error": "motor de voz desconocido"}, 400)
+            try: vel_ = float(body.get("velocidad") or 1.0)
+            except Exception: vel_ = 1.0
+            if mo_ == "voicestudio" and not voice_up() and not voice_iniciar(): return self._json({"error": "No pude encender Voice Studio: revisa su carpeta en Ajustes → Voz → Voice Studio."}, 500)
+            try:
+                import imageio_ffmpeg; cfg_ = jload("voz_config.json", {}); wv_ = vl.sintetizar_wav(mo_, vz_, vl.FRASE, vel_, pathlib.Path(TMPD) / "escuchar", imageio_ffmpeg.get_ffmpeg_exe(), seed=int(cfg_.get("semilla", 12345)), pasos=int(cfg_.get("pasos", 32)))   # la misma semilla y pasos que la voz real
+                data = wv_.read_bytes(); wv_.unlink(missing_ok=True)
+            except Exception as ex_: return self._json({"error": str(ex_)[:300]}, 500)
+            return self._json({"ok": True, "motor": mo_, "audio": "data:audio/wav;base64," + base64.b64encode(data).decode()})
         if pa == "/api/voz_config":   # Ajustes → Voz: perfil, velocidad y pausa de TODAS las voces del DevIAs Panel
             c_ = jload("voz_config.json", {}); c_ = c_ if isinstance(c_, dict) else {}
-            try: v_ = float(body.get("velocidad", c_.get("velocidad", 1.12))); pz_ = int(float(body.get("pausa_ms", c_.get("pausa_ms", 450))))
+            try: v_ = float(body.get("velocidad", c_.get("velocidad", 1.1))); pz_ = int(float(body.get("pausa_ms", c_.get("pausa_ms", 400))))
             except Exception: return self._json({"error": "velocidad y pausa deben ser números"}, 400)
-            pf_ = str(body.get("perfil", c_.get("perfil", "MI VOZ"))).strip()[:80]
+            pf_ = str(body.get("perfil", c_.get("perfil", "es_MX-claude-high"))).strip()[:80]
             if not pf_ or not .8 <= v_ <= 1.4 or not 150 <= pz_ <= 900: return self._json({"error": "perfil obligatorio, velocidad entre 0.8 y 1.4 y pausa entre 150 y 900 ms"}, 400)
-            mo_ = str(body.get("motor", c_.get("motor", "voicestudio"))).strip().lower()
-            if mo_ not in ("voicestudio", "huggingface"): return self._json({"error": "el motor debe ser voicestudio o huggingface"}, 400)
+            mo_ = str(body.get("motor", c_.get("motor", "piper"))).strip().lower()
+            if mo_ not in ("piper", "kokoro", "edge", "clon", "voicestudio"): return self._json({"error": "el motor debe ser piper, kokoro, edge, clon o voicestudio"}, 400)
+            if c_.get("voicestudio_activo") and mo_ != "voicestudio": return self._json({"error": "Voice Studio está activado: desactívalo para usar las voces del panel."}, 400)
             c_.update(perfil=pf_, velocidad=v_, pausa_ms=pz_, motor=mo_)
-            tk_ = str(body.get("hf_token") or "").strip()
-            if tk_: c_["hf_token"] = tk_[:200]
-            if body.get("hf_token_borrar"): c_.pop("hf_token", None)
-            jsave("voz_config.json", c_); logact(None, "Ajustes de voz guardados: motor %s, perfil «%s», velocidad %s, pausa %s ms." % ("Hugging Face (respaldo Voice Studio)" if mo_ == "huggingface" else "Voice Studio", pf_, v_, pz_), "info"); out_ = dict(c_); out_["hf_token_set"] = bool(out_.pop("hf_token", "")); return self._json({"ok": True, "config": out_})
+            jsave("voz_config.json", c_); logact(None, "Ajustes de voz guardados: motor %s, perfil «%s», velocidad %s, pausa %s ms." % ({"piper": "Piper local", "kokoro": "Kokoro local", "edge": "edge-tts (internet)", "clon": "Clon VoxCPM (internet)", "voicestudio": "Voice Studio"}[mo_], pf_, v_, pz_), "info"); return self._json({"ok": True, "config": c_})
         if pa == "/api/trabajo_externo":   # lo que Claude hace FUERA de los botones del panel (borradores, cambios…) también sale en «Trabajos recientes»: pedido.py avisa aquí cada avance
             ps_ = jload("proyectos.json", []); idea_ = body.get("idea"); pr_ = next((x for x in ps_ if x.get("id") == body.get("proyecto") or (idea_ and x.get("idea") == idea_)), None); clave = (pr_ or {}).get("id") or idea_ or "?"
             tit = (pr_ or {}).get("titulo") or next((x.get("titulo") for x in jload("pedidos.json", []) if x.get("idea") == idea_), "") or clave; pct_ = int(body.get("pct") or 0); fin_ = bool(body.get("hecho")) or bool(body.get("cierra")) or pct_ >= 100 or bool(body.get("error")) or int(body.get("etapa") or 0) == 8 or str(body.get("msg") or "").lower().startswith(("borrador listo", "video listo"))
@@ -1447,8 +1526,11 @@ class H(http.server.BaseHTTPRequestHandler):
 def _enciende_todo():   # «activar el panel» = activar todo: al arrancar se enciende también la API de voz (si Voice Studio está instalado y devpanel.json no dice "voz_al_iniciar": false)
     try:
         cfg = json.loads((ROOT / "devpanel.json").read_text(encoding="utf-8")) if (ROOT / "devpanel.json").exists() else {}
-        if cfg.get("voz_al_iniciar", True) and not voice_up() and (VS_PY.exists() and (VS_DIR / "backend").exists()): print("Encendiendo Voice Studio (API de voz)…", flush=True); voice_iniciar()
+        if cfg.get("voz_al_iniciar", True) and _motor_vs() and not voice_up() and (VS_PY.exists() and (VS_DIR / "backend").exists()): print("Encendiendo Voice Studio (API de voz)…", flush=True); voice_iniciar()
     except Exception as e: print("aviso: no se pudo encender Voice Studio al iniciar:", e, flush=True)
+def _voz_local():   # motor/voz_local.py: catálogo de voces y síntesis (Piper/Kokoro/edge/clon/Voice Studio)
+    import importlib.util as _iu
+    sp = _iu.spec_from_file_location("voz_local", str(ROOT / "motor" / "voz_local.py")); m = _iu.module_from_spec(sp); sp.loader.exec_module(m); return m
 class S(socketserver.ThreadingMixIn, http.server.HTTPServer):
     daemon_threads = True; allow_reuse_address = True
     def handle_error(self, request, client_address):   # el navegador cierra la conexión a mitad de una respuesta (recarga, mover el video…): es normal, no es un error del panel
